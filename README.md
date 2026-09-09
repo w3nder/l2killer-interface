@@ -28,6 +28,14 @@ O repositório é privado: o download exige uma conta com acesso.
 As preferências ficam em `C4Bars.ini`: `Bars`, `SecondPage`, `ThirdPage`,
 `ThirdModifier` e `ShowCredit`. `ShowCredit=0` desativa o crédito.
 
+## Equipamentos do alvo em desenvolvimento
+
+Ao expandir o alvo de um jogador, exibe os ícones dos equipamentos disponíveis
+no cache do cliente abaixo de clan e ally. O nome aparece ao passar o mouse.
+Trocar de alvo ou de equipamento atualiza a lista. NPCs não recebem esse painel.
+Não mostra inventário completo, encantamentos ou slots que o servidor não enviou.
+Use `TargetEquipment=0` na seção `[C4Bars]` para desativar. Validação visual pendente.
+
 ## Auto Potion em desenvolvimento
 
 CP, HP, Mana e Quick HP, com itens arrastados da maleta ou dos atalhos.
