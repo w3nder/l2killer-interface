@@ -1,0 +1,12 @@
+/sources/
+/dist/
+/research/
+/.venv/
+__pycache__/
+*.pyc
+.DS_Store
+*.dll
+*.exe
+*.zip
+*.rar
+*.log

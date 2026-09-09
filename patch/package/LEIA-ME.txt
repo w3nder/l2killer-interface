@@ -1,0 +1,49 @@
+C4Bars - teste 01
+
+Este e um prototipo para testar no jogo. Foi compilado no Mac para Windows x86.
+A aparencia, o carregamento do cliente e as interacoes ainda precisam ser
+validados no seu PC. Nao e uma versao final nem uma interface Interlude completa.
+
+INSTALAR
+1. Feche o jogo.
+2. Extraia este ZIP. Coloque a pasta C4Bars-teste-01 dentro da system do jogo.
+   Exemplo: Lineage II\system\C4Bars-teste-01\Instalar.bat
+3. Execute Instalar.bat. Ele verifica a versao e cria um backup automaticamente.
+4. Abra o jogo pelo atalho que voce normalmente usa.
+
+O QUE TESTAR
+- A barra principal continua sendo a pagina selecionada.
+- Cada barra extra tem pagina independente; as setas no inicio mudam entre 1 e 10.
+- A segunda inicia na pagina 2, a terceira na 3. A escolha e salva no C4Bars.ini.
+- Em modo horizontal, as extras ficam acima; em modo vertical, ao lado.
+  Perto do topo/esquerda, o sentido muda para caber na tela.
+- Use o botao original de girar para escolher horizontal/vertical.
+- Ha um pequeno + ou - amarelo no canto restante dos controles da barra principal.
+  Clique para alternar 1 -> 2 -> 3 -> 1 barras. A escolha fica no C4Bars.ini.
+- F1 a F12: barra principal.
+- Alt+F1 a F12: segunda barra, quando visivel.
+- Ctrl+Alt+F1 a F12: terceira barra, quando visivel.
+  Para usar Shift+F1 a F12 na terceira, edite ThirdModifier=1 no C4Bars.ini,
+  com o jogo fechado. O padrao e ThirdModifier=0.
+- Teste primeiro com uma acao simples em cada pagina e clique nos tres slots.
+- Depois confira arrastar um atalho, usar pelo teclado, cooldown e relogar.
+
+LIMITES DESTA VERSAO
+- Os seletores das extras reutilizam os botoes nativos do cliente.
+- Os controles de girar/mover pertencem a barra principal.
+- Os desenhos F1..F12 das extras ainda usam as texturas originais, sem a palavra Alt.
+- O modo joystick mantem o funcionamento original, com uma barra.
+- Comportamento de Alt+teclas de sistema e conflito com teclas personalizadas
+  precisa ser verificado no jogo. Comece por F1 e Alt+F1.
+
+DESFAZER
+Feche o jogo e execute Restaurar.bat. O backup e NWindow.dll.c4bars-original,
+na system. O restaurador confere os arquivos antes de substituir.
+Para desativar os hooks sem remover o carregamento da DLL, use Enabled=0 no
+C4Bars.ini com o jogo fechado. Para restauracao completa use Restaurar.bat.
+
+RETORNO DO TESTE
+Informe se abriu o cliente, se entraram as tres barras e se cada uma usou o slot
+correto. Uma imagem da tela e o arquivo system\C4Bars.log ajudam a ajustar.
+Se o instalador acusar versao diferente, envie o texto do erro; nao force a copia.
+Nao precisa instalar Ghidra, compilador ou outra ferramenta de desenvolvimento.
