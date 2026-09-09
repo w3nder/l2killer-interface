@@ -4,9 +4,9 @@ Paint nativePaint=nullptr;
 bool attempted=false;
 void *owner=nullptr;
 unsigned targetId=0;
-constexpr int count=10,top=78,iconSize=24,pitch=28;
+constexpr int count=11,top=78,iconSize=24,pitch=28;
 int extraHeight=76;
-constexpr unsigned offsets[count]={0xac,0xb0,0xb4,0xb8,0xbc,0xc0,0xc4,0xc8,0xcc,0xd4};
+constexpr unsigned offsets[count]={0x94,0xac,0xb0,0xb4,0xb8,0xbc,0xc0,0xc4,0xc8,0xcc,0xd4};
 unsigned ids[count]={};
 void *textures[count]={};
 float originalHeight=0;
@@ -55,14 +55,6 @@ int __fastcall paint(void *self,void *,void *canvas) {
     if(width<84){reset(self);return result;}
     int columns=(width-28)/pitch;
     if(columns>5)columns=5;
-    const int needed=((count+columns-1)/columns)*pitch+20;
-    if(enlarged&&needed!=extraHeight){reset(self);targetId=selected;}
-    if(!enlarged){
-        extraHeight=needed;
-        originalHeight=field<float>(self,0x50);
-        if(originalHeight<70||originalHeight>100)return result;
-        resize(self,static_cast<int>(originalHeight)+extraHeight);enlarged=true;
-    }
     void *data=field<void *>(potion::moduleBase,0x19e494);
     auto itemData=field<Lookup>(potion::moduleBase,0x19e4e0);
     auto name=field<Name>(potion::moduleBase,0x19e4ec);
@@ -76,6 +68,14 @@ int __fastcall paint(void *self,void *,void *canvas) {
         bool duplicate=false;
         for(int j=0;j<used;++j)if(current[j]==id)duplicate=true;
         if(!duplicate)current[used++]=id;
+    }
+    const int needed=(((used?used:1)+columns-1)/columns)*pitch+20;
+    if(enlarged&&needed!=extraHeight){reset(self);targetId=selected;}
+    if(!enlarged){
+        extraHeight=needed;
+        originalHeight=field<float>(self,0x50);
+        if(originalHeight<70||originalHeight>100)return result;
+        resize(self,static_cast<int>(originalHeight)+extraHeight);enlarged=true;
     }
     for(int i=0;i<count;++i)if(ids[i]!=current[i]) {
         ids[i]=current[i];textures[i]=nullptr;

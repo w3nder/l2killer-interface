@@ -13,3 +13,7 @@ Limitations: display only client-provided visual equipment. Jewelry, enchant val
 Validation: compiled x86 renderer bridge tested at two DLL bases for player-only display, repeated frames, duplicated IDs, equipment changes, empty data, NPC, collapse, lost target, width wrapping and canvas-origin restoration. Full existing regression also passed before the final width-only layout adjustment.
 
 Player validated the first in-game equipment display. Icons are now 24px with 28px spacing; compact layout regression passed at both DLL bases. Custom left/tattoo slots are not yet mapped.
+
+Packet reader audit: engine CharInfo entry 0x10422390 passes User+0x94 (underwear) immediately before +0xac..+0xcc and +0xd4 to the decoder call at 0x104225b5. The display previously omitted +0x94; now it includes it. This can show custom tattoo equipment if the server places its class ID in that slot. The CharInfo reader does not pass +0x98..+0xa8 (ear/neck/finger slots), unlike the UserInfo decode at 0x10423d17. Do not interpret these absent remote fields as received equipment or borrow the local player's data. A server-specific socket capture would be needed to establish additional custom fields.
+
+Panel height now follows the number of unique received IDs, with at least one row for the empty-data label. Regression covers all eleven slots and wrapping at 140px. Runtime DLL installed for next launch; the new underwear item still requires in-game validation.
