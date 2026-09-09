@@ -90,6 +90,8 @@ c4bars::Layout layout(void *self) {
 
 #include "auto_potion.h"
 #include "target_equipment.h"
+void putJump(unsigned char *at, const void *target);
+#include "local_appearance.h"
 
 bool containsAscii(const wchar_t *text, const char *needle) {
     if (!text) return false;
@@ -205,6 +207,8 @@ int __fastcall paintHook(void *self, void *, void *canvas) {
     if (hoveredRow > 0 && hoveredRow < barCount && field<int>(self, 0x27c) >= 0)
         tooltipHook(self, nullptr, canvas);
     targetEquipment::install();
+    appearance::install();
+    appearance::apply();
     potion::paint(self, canvas);
     return result;
 }

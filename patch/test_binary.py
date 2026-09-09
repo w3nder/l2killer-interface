@@ -225,7 +225,7 @@ def verify_hooks(helper):
         titles = []
         cursor_apis = {}
         for i, (name, argc) in enumerate((('GetForegroundWindow', 0), ('GetWindowThreadProcessId', 2),
-                ('GetCurrentProcessId', 0), ('GetCursorPos', 1), ('ScreenToClient', 2))):
+                ('GetCurrentProcessId', 0), ('GetCursorPos', 1), ('ScreenToClient', 2), ('GetModuleHandleA', 1))):
             at = 0x70000600 + i * 16
             w32(uc, symbol('__imp__' + name + '@' + str(argc * 4)), at)
             cursor_apis[at] = (name, argc)
@@ -261,7 +261,8 @@ def verify_hooks(helper):
             elif address in cursor_apis:
                 name, argc = cursor_apis[address]
                 result = 1
-                if name == 'GetForegroundWindow': result = 123 if cursor_position else 0
+                if name == 'GetModuleHandleA': result = 0
+                elif name == 'GetForegroundWindow': result = 123 if cursor_position else 0
                 elif name == 'GetWindowThreadProcessId': w32(uc, r32(uc, sp + 8), 1)
                 elif name == 'GetCursorPos':
                     uc.mem_write(r32(uc, sp + 4), struct.pack('<ii', *cursor_position))
