@@ -1,0 +1,18 @@
+name: Sugestão de melhoria
+description: Proponha uma mudança na interface.
+title: "[Ideia] "
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: O que você quer melhorar?
+      description: Descreva uma situação dentro do jogo.
+    validations:
+      required: true
+  - type: textarea
+    id: behavior
+    attributes:
+      label: Como deveria funcionar?
+      description: Se ajudar, inclua um exemplo ou uma captura.
+    validations:
+      required: true

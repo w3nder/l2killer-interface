@@ -1,0 +1,35 @@
+name: Bug no cliente
+description: Informe o que aconteceu e como reproduzir.
+title: "[Bug] "
+body:
+  - type: input
+    id: version
+    attributes:
+      label: Versão da Interface WT
+      placeholder: "1.1.0"
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Sistema e cliente
+      placeholder: "Windows 11, L2Killer C4; ou versão do Wine e macOS"
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Como reproduzir
+      description: Conte os passos, o resultado esperado e o que aconteceu.
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Captura, erro ou trecho do log
+      description: Remova nomes de contas, senhas, IPs privados e dados pessoais. Não anexe o cliente ou DLLs originais.
+  - type: textarea
+    id: original
+    attributes:
+      label: Comparação com a system original
+      description: A original abre e funciona? O problema acontece sempre ou às vezes?

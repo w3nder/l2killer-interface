@@ -1,117 +1,92 @@
-# L2Killer Interface — WT
+# L2Killer Interface · WT
 
-Versão **1.1.0**, validada por Wender no Windows 11 e no Wine.
-A branch `develop` recebe as próximas mudanças.
-Projeto independente de um player, sem vínculo com o dono ou a equipe do L2Killer.
+[![Release](https://img.shields.io/github/v/release/w3nder/l2killer-interface?color=d8b878)](https://github.com/w3nder/l2killer-interface/releases/latest)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Client](https://img.shields.io/badge/client-Lineage_II_C4-444444)](https://interface.unkbot.com/)
 
-Patch de interface para o cliente **Lineage II C4 do L2Killer**, desenvolvido por **Wender (WT)**.
+Interface para o **Lineage II C4 do L2Killer**, feita por **Wender Teixeira (WT)**.
+Três barras de atalhos, Auto Potion e equipamentos do alvo no cliente clássico.
 
-## Download da system pronta
+**[Baixar a system pronta](https://interface.unkbot.com/downloads/L2Killer-System-WT.zip)** · **[Ver a demonstração](https://interface.unkbot.com/#demo-title)** · **[Releases](https://github.com/w3nder/l2killer-interface/releases)**
 
-[Baixar L2Killer-System-WT.zip](https://interface.unkbot.com/downloads/L2Killer-System-WT.zip)
+[![Interface WT dentro do L2Killer](docs/images/interface-wt.jpg)](https://interface.unkbot.com/#demo-title)
 
-Feche o jogo, guarde sua pasta `system` anterior e copie a pasta `system` do ZIP
-para o cliente L2Killer. Abra `system/l2.exe` normalmente. A DLL auxiliar já está
-incluída; não remova `C4Bars.dll`. Para desfazer, restaure a pasta anterior inteira.
+> Projeto independente de um player. Não é uma interface oficial e não tem
+> vínculo com o dono ou a administração do L2Killer.
 
-O download no site é público; o código-fonte permanece neste repositório.
+## O que tem na 1.1.0
 
-## Funcionalidades
-
-- Três barras com páginas independentes e seletores nativos nas duas extras.
-- Botão para recolher as extras e voltar à barra original; expandir preserva as páginas.
-- Descrição nativa dos itens ao passar o mouse.
-- F1–F12 na primeira barra, Alt+F1–F12 na segunda e Ctrl+Alt+F1–F12 na terceira.
-- Crédito local, em dourado, imediatamente após a mensagem de sistema/aviso
-  que contém “Welcome” e “Lineage”: **[ WT ] Patch by Wender | Enjoy the game!**
-- Crédito uma vez por abertura do cliente, sem temporizador e sem mensagem de rede.
-
-As preferências ficam em `C4Bars.ini`: `Bars`, `SecondPage`, `ThirdPage`,
-`ThirdModifier` e `ShowCredit`. `ShowCredit=0` desativa o crédito.
-
-## Equipamentos do alvo
-
-Ao expandir o alvo de um jogador, exibe os ícones dos equipamentos disponíveis
-no cache do cliente abaixo de clan e ally. O nome aparece ao passar o mouse.
-Trocar de alvo ou de equipamento atualiza a lista. NPCs não recebem esse painel.
-Mostra o enchant recebido da arma ao lado do nome. Não mostra inventário completo, enchant de armaduras ou slots que o servidor não enviou.
-Use `TargetEquipment=0` na seção `[C4Bars]` para desativar. Validado no jogo.
-
-## Auto Potion
-
-CP, HP, Mana e Quick HP, com itens arrastados da maleta ou dos atalhos.
-Configuração em inglês, janela nativa móvel e barra compacta para ligar/desligar.
-Itens, percentuais e preferências são restaurados na entrada do personagem.
-O jogador escolhe percentual, intervalo ou ambos; não há cooldown fixo extra
-entre poções no modo percentual.
-
-O uso manual tem prioridade enquanto aguarda atualização do inventário.
-Uma recuperação de 2 segundos evita ficar parado se a resposta não chegar.
-O cursor sobre a maleta ou a barra não pausa as poções.
-A correlação por item e o cooldown nativo continuam em pesquisa.
-
-## Comandos visuais locais
-
-- `!hero_on`: liga o efeito de hero no seu personagem.
-- `!hero_off` (ou `_hero_off`): desliga o efeito.
-- `!color_name FF0000`: muda o nick para vermelho; aceita RRGGBB.
-
-Só você vê essas mudanças, durante a sessão. Não concede hero ou habilidades
-no servidor e não altera outros jogadores. Validado por Wender no jogo.
-
-## Código-fonte e compilação
-
-Este repositório contém o código do patch, não o código-fonte do cliente original.
-A system pronta está no asset da release. As DLLs originais não entram no Git.
-
-Requisitos: Python 3, MinGW-w64 para x86 (`i686-w64-mingw32-g++`, GCC e objcopy),
-Clang++ para o teste de geometria e Unicorn para a emulação x86.
-
-```bash
-python3 -m venv .venv
-.venv/bin/python -m pip install -r requirements-dev.txt
-python3 patch/build_patch.py --l2killer --source /caminho/para/NWindow.dll
-clang++ -std=c++17 -Wall -Wextra -Werror patch/test_layout.cpp -o /tmp/c4bars-layout
-/tmp/c4bars-layout
-.venv/bin/python patch/test_binary.py --l2killer --source /caminho/para/NWindow.dll
-.venv/bin/python patch/test_native_window.py --l2killer --source /caminho/para/NWindow.dll
-.venv/bin/python patch/test_manual_priority.py --l2killer --source /caminho/para/NWindow.dll
-clang++ -std=c++17 -Wall -Wextra -Werror patch/test_potion_policy.cpp -o /tmp/c4bars-potions
-/tmp/c4bars-potions
-```
-
-A entrada deve ser a **NWindow.dll original, sem o patch**, com SHA-256:
-
-```text
-1fdcf9b455ef7ff93dfedeb9667e61a9874e31fe125982437d98c4d0adea3cce
-```
-
-O build recusa outra versão e gera `dist/C4Bars-L2Killer-teste-05/`, com as DLLs,
-configuração, instaladores opcionais e manifesto de hashes. Ele não altera a entrada.
-Sem `--source`, o perfil L2Killer procura `sources/NWindow-L2Killer.dll`.
-Nesta branch o Auto Potion exige `--l2killer`; os endereços nativos não são compatíveis com outro perfil.
-
-## Organização
-
-| Arquivo | Função |
+| Recurso | Como funciona |
 | --- | --- |
-| `patch/C4Bars.cpp` | Desenho, mouse, teclado, tooltip e crédito após Welcome |
-| `patch/layout.h` | Geometria e páginas independentes |
-| `patch/profile.h` | Endereços específicos das versões analisadas |
-| `patch/entry.S` | Wrapper de entrada PE, preservando o entrypoint original |
-| `patch/build_patch.py` | Compilação, validação de versão e pacote |
-| `patch/test_binary.py` | Execução x86 com callbacks Windows/cliente simulados |
-| `patch/test_layout.cpp` | Posições, bordas e identificação das barras |
-| `docs/release-v1.0.0.json` | Hashes da versão distribuída e confirmação do teste |
+| Três barras | Páginas independentes, seletores, recolhimento e descrição dos itens. |
+| Auto Potion | CP, HP, Mana e Quick HP. Arraste os itens, escolha percentual, intervalo ou ambos e ative. |
+| Configuração salva | Poções e preferências restauradas ao entrar, janela móvel e controle na barra compacta. |
+| Uso manual prioritário | Usar um item manualmente cede prioridade ao jogador enquanto aguarda a atualização do inventário. |
+| Equipamentos do alvo | Ícones de 14 px abaixo de clan/ally, nomes e enchant recebido da arma ao passar o mouse. |
+| Visual local | Efeito de hero e cor do nome por comandos, só no seu personagem e na sua tela. |
 
-## Validação e limites
+**Validada por WT no Windows 11 e no Wine.** Outros clientes e versões de DLL não
+são compatíveis automaticamente. O patch só mostra equipamentos recebidos pelo
+cliente; não revela inventários, joias ausentes ou enchant das armaduras.
 
-A versão distribuída foi testada no jogo pelo usuário, incluindo nova abertura.
-Os testes automatizados cobrem geometria, convenções de chamada, restauração de
-estado, atalhos, ordem do crédito e prevenção de duplicação. Eles simulam o
-renderer e não substituem o teste visual. Não há suporte genérico a outros clientes.
+## Instalar
 
-No Mac de desenvolvimento foi usado Wine 11.0_1 com
-`WINE_D3D_CONFIG=renderer=gl,csmt=0`; Vulkan apresentou tela preta. Ocorreram
-falhas intermitentes na inicialização gráfica do Wine. O ZIP não inclui Wine
-nem o cliente completo. O cliente C4 continua necessário.
+1. Se ainda não tem o cliente, [baixe o jogo completo no site do L2Killer](https://l2killer.org/?page=download).
+2. Feche o jogo e renomeie sua pasta `system` para `system-backup`.
+3. Extraia o ZIP da WT e coloque a pasta `system` no lugar da antiga.
+4. Abra `system/l2.exe`. Arraste suas poções e ative o Auto Potion no primeiro uso.
+
+O ZIP já está compilado. Não precisa instalar ferramentas de desenvolvimento.
+Para desfazer, restaure a pasta anterior inteira. O download não inclui o cliente
+completo nem o Wine.
+
+## Atalhos e comandos
+
+| Ação | Atalho ou comando |
+| --- | --- |
+| Primeira barra | F1–F12 |
+| Segunda barra | Alt + F1–F12 |
+| Terceira barra | Ctrl + Alt + F1–F12 |
+| Ligar efeito de hero | `!hero_on` |
+| Desligar efeito de hero | `!hero_off` ou `_hero_off` |
+| Nick vermelho | `!color_name FF0000` |
+
+A cor aceita seis dígitos hexadecimais RRGGBB. Hero e cor valem durante a sessão,
+não concedem status ou habilidades no servidor e não alteram outros jogadores.
+Os comandos locais não são enviados ao chat do servidor.
+
+Em `C4Bars.ini`, use `ShowCredit=0` para ocultar o crédito e `TargetEquipment=0`
+para desligar a exibição de equipamentos, ambos na seção `[C4Bars]`.
+
+## Desenvolvimento
+
+O código aqui é do patch, não do cliente original. As alterações usam C++ e
+assembly x86, com endereços conferidos por engenharia reversa para este cliente.
+
+- **[Compilar e testar](docs/building.md)** — dependências, hash da DLL original e comandos.
+- **[Contribuir](CONTRIBUTING.md)** — fluxo de branches e validação das mudanças.
+- **[Reportar um bug](https://github.com/w3nder/l2killer-interface/issues/new/choose)** — reprodução e ambiente.
+- **[Notas dos equipamentos](docs/target-equipment.md)** e **[comandos locais](docs/local-appearance.md)** — detalhes do mapeamento.
+
+| Caminho | Conteúdo |
+| --- | --- |
+| `patch/C4Bars.cpp` | Integração das barras, entrada, tooltip e crédito |
+| `patch/auto_potion.h` | Auto Potion e preferências |
+| `patch/native_potion_window.h` | Janela nativa de configuração |
+| `patch/manual_item_priority.h` | Prioridade do uso manual |
+| `patch/target_equipment.h` | Equipamentos do alvo e enchant da arma |
+| `patch/local_appearance.h` | Comandos de hero e cor do nome |
+| `patch/build_patch.py` | Build x86 e validação do binário de entrada |
+| `patch/test_*` | Testes nativos e emulação x86 |
+| `docs/release-v*.json` | Manifestos e hashes das distribuições |
+
+`main` acompanha a versão distribuída. Novas mudanças entram em `develop` e só
+viram release depois dos testes no jogo. A automação não substitui a validação
+visual e de inicialização no Windows. O Wine pode apresentar falhas intermitentes
+na inicialização gráfica. Descarregar a DLL durante o jogo não é suportado.
+
+## Licença e autoria
+
+Código do patch sob a [licença MIT](LICENSE). Copyright © 2026 Wender Teixeira (WT).
+A licença cobre o código original deste projeto; não licencia o cliente Lineage II,
+as DLLs originais, texturas, marcas ou demais materiais de terceiros nos pacotes.
