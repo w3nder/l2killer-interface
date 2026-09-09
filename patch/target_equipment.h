@@ -40,6 +40,24 @@ unsigned itemClass(void *console,void *user,unsigned offset) {
     void *item=lookup(network,value); // Local UserInfo stores object IDs.
     return item?field<unsigned>(item,4):0;
 }
+// CharInfo has one weapon-effect enchant value, not per-armor enchant data.
+__attribute__((noinline,regparm(0))) int weaponEnchant(void *console,void *user,unsigned id,void *entry) {
+    if(!id||!entry||field<int>(entry,4)!=0)return -1; // Weapon item-data type.
+    if(id!=itemClass(console,user,0xb0)&&id!=itemClass(console,user,0xcc))return -1;
+    const int value=field<int>(user,0x234);
+    return value>=0&&value<=127?value:-1; // Native decoder sign-extends a byte.
+}
+__attribute__((noinline,regparm(0))) void enchantLabel(wchar_t *out,const wchar_t *name,int value) {
+    int n=0;
+    while(name[n]&&n<247){out[n]=name[n];++n;}
+    if(value>=0&&value<=127){
+        out[n++]=L' ';out[n++]=L'(';out[n++]=L'+';
+        if(value>=100)out[n++]=L'0'+value/100;
+        if(value>=10)out[n++]=L'0'+(value/10)%10;
+        out[n++]=L'0'+value%10;out[n++]=L')';
+    }
+    out[n]=0;
+}
 int __fastcall paint(void *self,void *,void *canvas) {
     const int result=nativePaint(self,canvas);
     void *console=field<void *>(potion::moduleBase,0x2c6ad4);
@@ -103,7 +121,12 @@ int __fastcall paint(void *self,void *,void *canvas) {
     if(!used)potion::text(canvas,16,top+8,L"No equipment data",0xffa3a3a3);
     if(hovered>=0){
         const wchar_t *label=itemName(data,ids[hovered]);
-        if(label)potion::text(canvas,16,top+extraHeight-16,label,0xffdfbf78);
+        if(label){
+            wchar_t display[256];
+            const int enchant=weaponEnchant(console,user,ids[hovered],itemData(data,ids[hovered]));
+            enchantLabel(display,label,enchant);
+            potion::text(canvas,16,top+extraHeight-16,display,0xffdfbf78);
+        }
     }
     popClip(canvas);field<int>(canvas,0x38)=oldX;field<int>(canvas,0x3c)=oldY;
     return result;

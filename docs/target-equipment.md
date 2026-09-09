@@ -19,3 +19,5 @@ Packet reader audit: engine CharInfo entry 0x10422390 passes User+0x94 (underwea
 Panel height now follows the number of unique received IDs, with at least one row for the empty-data label. Regression covers all eleven slots and wrapping at 140px. Runtime DLL installed for next launch; the new underwear item still requires in-game validation.
 
 Icons reduced to 14px with 18px spacing, allowing up to eleven columns when native width permits. Layout regression passed at both DLL bases. Per-item enchant suffix is not implemented: the current class-ID cache does not contain a verified enchant value for each remote equipment slot.
+
+Weapon enchant suffix implemented: User +0x234 (CharInfo byte sign-extended at engine 0x10422839) is displayed only for weapon data type 0 matching right/shared-hand class ID. Other equipment receives no suffix. Invalid signed values are omitted. Fixed 256-wide-character buffer bounds label formatting. Tests cover +0/+20/+127, invalid values and armor exclusion at both DLL bases. Live validation of server-reported enchant remains pending.

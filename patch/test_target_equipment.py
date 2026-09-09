@@ -48,6 +48,21 @@ for base in (dll.u32(dll.opt+28),0x25000000):
         elif address in (0x70000160,0x70000170,0x70000180):
             return_from_stub(uc,{0x70000160:4,0x70000170:0,0x70000180:15}[address])
     uc.hook_add(UC_HOOK_CODE,hook)
+    # Only the weapon gets the character's single enchant field.
+    enchant=sym('targetEquipment','weaponEnchant')
+    w32(uc,user+0x234,20);w32(uc,record+4,0)
+    assert invoke(uc,enchant,[CONSOLE,user,1001,record],cdecl=True)==20
+    assert invoke(uc,enchant,[CONSOLE,user,1002,record],cdecl=True)==0xffffffff
+    w32(uc,record+4,1)
+    assert invoke(uc,enchant,[CONSOLE,user,1001,record],cdecl=True)==0xffffffff
+    w32(uc,record+4,0);w32(uc,user+0x234,0xffffffff)
+    assert invoke(uc,enchant,[CONSOLE,user,1001,record],cdecl=True)==0xffffffff
+    formatter=sym('targetEquipment','enchantLabel')
+    for value,expected in [(20,'Test (+20)'),(0,'Test (+0)'),(127,'Test (+127)'),(0xffffffff,'Test')]:
+        uc.mem_write(SELF+0xb000,'Test\0'.encode('utf-16le'))
+        invoke(uc,formatter,[SELF+0xc000,SELF+0xb000,value],cdecl=True)
+        actual=bytes(uc.mem_read(SELF+0xc000,512)).decode('utf-16le').split('\0')[0]
+        assert actual==expected,(actual,expected)
     paint=sym('targetEquipment','5paint')
     def draw():
         w32(uc,CANVAS+0x38,33);w32(uc,CANVAS+0x3c,44)
