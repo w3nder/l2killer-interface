@@ -3,6 +3,7 @@
 #include <stdint.h>
 #include "layout.h"
 #include "profile.h"
+#include "potion_policy.h"
 
 // This DLL is specific to the SHA-256 recorded by build_patch.py. All addresses
 // are RVAs, and original vtable entries/prologue bytes are checked before writes.
@@ -14,7 +15,6 @@ using Mouse = int (__thiscall *)(void *, unsigned, unsigned);
 using Console = int (__thiscall *)(void *, unsigned, unsigned, unsigned);
 using Clip = void (__thiscall *)(void *, int, int, int, int);
 using PopClip = void (__thiscall *)(void *);
-using Text = void (__thiscall *)(void *, int, int, int, unsigned, const wchar_t *, unsigned);
 Paint originalPaint;
 Paint originalTooltip;
 Mouse originalMouseMove;
@@ -24,7 +24,6 @@ Mouse originalMouseDown;
 Console originalConsole;
 Clip pushClip;
 PopClip popClip;
-Text drawText;
 int barCount = 3;
 int secondPage = 1, thirdPage = 2;
 int thirdModifier = 0;
@@ -36,7 +35,6 @@ bool creditShown = false;
 bool creditEnabled = true;
 using Chat = void (__thiscall *)(void *, const wchar_t *, unsigned, unsigned, unsigned);
 Chat originalChat;
-unsigned clickLogs = 0;
 LONG initialized = 0;
 
 template <class T> T &field(void *object, unsigned offset) {
@@ -56,9 +54,14 @@ bool equalBytes(const void *a, const void *b, unsigned size) {
 unsigned length(const char *s) { unsigned n = 0; while (s[n]) ++n; return n; }
 void log(const char *s) {
     if (logFile == INVALID_HANDLE_VALUE) return;
-    DWORD written;
-    WriteFile(logFile, s, length(s), &written, nullptr);
-    FlushFileBuffers(logFile);
+    // Bound diagnostics and let Windows buffer writes; never fsync the game
+    // thread for each fragment. Process teardown closes the handle normally.
+    static unsigned total=0;
+    const unsigned size=length(s);
+    if(size>65536-total)return;
+    DWORD written=0;
+    if(WriteFile(logFile,s,size,&written,nullptr))total+=written;
+
 }
 void number(int value) {
     char text[16];
@@ -85,6 +88,8 @@ c4bars::Layout layout(void *self) {
             secondPage, thirdPage};
 }
 
+#include "auto_potion.h"
+
 bool containsAscii(const wchar_t *text, const char *needle) {
     if (!text) return false;
     for (unsigned i = 0; i < 1024 && text[i]; ++i) {
@@ -107,7 +112,7 @@ void __fastcall chatHook(void *self, void *, const wchar_t *text,
     if (welcome) creditShown = true; // prevent reentrant duplicate messages
     originalChat(self, text, color, channel, attribute);
     if (welcome) {
-        originalChat(self, L"[ WT ] Patch desenvolvido por Wender | Bom jogo!", 0xffffd36a, 5, 0xffb09b79);
+        originalChat(self, L"[ WT ] Patch by Wender | Enjoy the game!", 0xffffd36a, 5, 0xffb09b79);
         log("credit: added immediately after Welcome\r\n");
     }
 }
@@ -198,11 +203,13 @@ int __fastcall paintHook(void *self, void *, void *canvas) {
     field<int>(canvas, 0x3c) = oldY;
     if (hoveredRow > 0 && hoveredRow < barCount && field<int>(self, 0x27c) >= 0)
         tooltipHook(self, nullptr, canvas);
+    potion::paint(self, canvas);
     return result;
 }
 
 int __fastcall boundsHook(void *self, void *, int x, int y) {
     if (!supported(self)) return originalBounds(self, x, y);
+    if ((!potion::configWindow||potion::collapsed)&&potion::inside(x, y)) return 1;
     const auto geometry = layout(self);
     for (int row = 0; row < barCount; ++row)
         if (originalBounds(self, x - geometry.dx(row), y - geometry.dy(row))) return 1;
@@ -218,13 +225,6 @@ int __fastcall mouseMoveHook(void *self, void *, unsigned flags, unsigned packed
         hoveredRow = row < 0 ? 0 : row;
     }
     const int result = originalMouseMove(self, flags, packed);
-    static int lastHover = -2;
-    const int hover = field<int>(self, 0x27c);
-    if (hover != lastHover) {
-        lastHover = hover;
-        log("hover: row="); number(hoveredRow + 1); log(" slot="); number(hover);
-        log("\r\n");
-    }
     return result;
 }
 
@@ -243,6 +243,14 @@ int __fastcall tooltipHook(void *self, void *, void *canvas) {
 }
 
 int __fastcall mouseDownHook(void *self, void *, unsigned flags, unsigned packed) {
+    if (supported(self)) {
+        // Once the viewport owns potion input, native dispatch must not execute
+        // the same button action a second time.
+        if (potion::previousWndProc) {
+            if (((!potion::configWindow||potion::collapsed)&&
+                 potion::inside(packed & 0xffff, packed >> 16)) || potion::ownedClick) return 1;
+        } else if (potion::click(self, packed & 0xffff, packed >> 16)) return 1;
+    }
     if (supported(self)) {
         const auto geometry = layout(self);
         const int x = static_cast<int>(packed & 0xffff) - geometry.x;
@@ -277,15 +285,17 @@ int __fastcall mouseDownHook(void *self, void *, unsigned flags, unsigned packed
         }
     }
     const int result = originalMouseDown(self, flags, packed);
-    if (clickLogs++ < 24) {
-        log("mouse down: slot="); number(field<int>(self, 0x278));
-        log(" x="); number(packed & 0xffff);
-        log(" y="); number(packed >> 16); log("\r\n");
-    }
     return result;
 }
 
 int __fastcall consoleHook(void *self, void *, unsigned message, unsigned key, unsigned flags) {
+    if((message==WM_KEYDOWN||message==WM_SYSKEYDOWN)&&key>=VK_F1&&key<=VK_F12)
+        potion::manualInputPending=true;
+    if(potion::consumeWorldMouse(message,key))return 1;
+    if(potion::editing>=0 && (message==WM_CHAR ||
+       ((message==WM_KEYDOWN||message==WM_KEYUP) &&
+        ((key>='0'&&key<='9')||(key>=VK_NUMPAD0&&key<=VK_NUMPAD9)||
+         key==VK_BACK||key==VK_RETURN||key==VK_ESCAPE))))return 1;
     const bool down = message == WM_KEYDOWN || message == WM_SYSKEYDOWN;
     const bool up = message == WM_KEYUP || message == WM_SYSKEYUP;
     if ((!down && !up) || key < VK_F1 || key > VK_F12)
@@ -348,7 +358,8 @@ extern "C" __attribute__((naked)) int C4BarsHitBridge() {
 }
 
 extern "C" __declspec(dllexport) int __cdecl C4BarsInitialize(HMODULE module) {
-    if (InterlockedCompareExchange(&initialized, 1, 0)) return 1;
+    const LONG previous=InterlockedCompareExchange(&initialized,-1,0);
+    if(previous)return previous==1; // Never report success after a failed install.
     char path[MAX_PATH];
     const DWORD n = GetModuleFileNameA(module, path, MAX_PATH);
     if (n == 0 || n >= MAX_PATH) return 0;
@@ -362,7 +373,7 @@ extern "C" __declspec(dllexport) int __cdecl C4BarsInitialize(HMODULE module) {
     copyBytes(path + start, "C4Bars.ini", 11);
     copyBytes(iniPath, path, length(path) + 1);
     if (!GetPrivateProfileIntA("C4Bars", "Enabled", 1, path)) {
-        log("disabled by C4Bars.ini\r\n"); return 1;
+        log("disabled by C4Bars.ini\r\n"); initialized=1;return 1;
     }
     barCount = static_cast<int>(GetPrivateProfileIntA("C4Bars", "Bars", 3, path));
     if (barCount < 1 || barCount > 3) barCount = 3;
@@ -373,6 +384,7 @@ extern "C" __declspec(dllexport) int __cdecl C4BarsInitialize(HMODULE module) {
     if (secondPage < 0 || secondPage >= 10) secondPage = 1;
     if (thirdPage < 0 || thirdPage >= 10) thirdPage = 2;
     auto *base = reinterpret_cast<unsigned char *>(module);
+    potion::init(base);
     auto *table = reinterpret_cast<uintptr_t *>(base + c4rva(0x1cbd68));
     const unsigned char expectedHit[6] = {0x8b, 0x91, 0x64, 0x02, 0x00, 0x00};
     const unsigned char expectedConsole[5] = {0x55, 0x8b, 0xec, 0x6a, 0xff};
@@ -430,7 +442,6 @@ extern "C" __declspec(dllexport) int __cdecl C4BarsInitialize(HMODULE module) {
     originalConsole = reinterpret_cast<Console>(trampoline + 16);
     pushClip = reinterpret_cast<Clip>(base + c4rva(0x13330));
     popClip = reinterpret_cast<PopClip>(base + c4rva(0x13340));
-    drawText = reinterpret_cast<Text>(base + c4rva(0x13350));
     table[0xf8 / 4] = reinterpret_cast<uintptr_t>(&paintHook);
     table[0xfc / 4] = reinterpret_cast<uintptr_t>(&tooltipHook);
     table[0x10c / 4] = reinterpret_cast<uintptr_t>(&mouseMoveHook);
@@ -450,6 +461,7 @@ extern "C" __declspec(dllexport) int __cdecl C4BarsInitialize(HMODULE module) {
     FlushInstructionCache(GetCurrentProcess(), base + c4rva(0x1060f0), 6);
     FlushInstructionCache(GetCurrentProcess(), base + c4rva(0x75fe0), 5);
     log("hooks installed: paint, bounds, hit, mouse, keyboard, tooltip\r\n");
+    initialized=1;
     return 1;
 }
 

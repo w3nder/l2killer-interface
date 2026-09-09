@@ -29,7 +29,7 @@ O QUE TESTAR
 - Depois confira arrastar um atalho, usar pelo teclado, cooldown e relogar.
 
 LIMITES DESTA VERSAO
-- Os seletores das extras reutilizam os botoes nativos do cliente.
+- Os seletores das extras usam setas de texto; a aparencia ainda e de prototipo.
 - Os controles de girar/mover pertencem a barra principal.
 - Os desenhos F1..F12 das extras ainda usam as texturas originais, sem a palavra Alt.
 - O modo joystick mantem o funcionamento original, com uma barra.

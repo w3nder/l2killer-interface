@@ -193,6 +193,10 @@ def verify_hooks(helper):
         def put_global(part, value):
             w32(uc, symbol(part), value)
 
+        uc.mem_map(0x10000000, 0x400000)
+        put_global('potionL10moduleBaseE', 0x10000000)
+        put_global('potionL6panelXE', 2000)
+        uc.mem_write(symbol('potionL9collapsedE'),b'\x00')
         for offset, value in {0x1f8: 0, 0x268: 12, 0x26c: 10, 0x274: 32,
                               0x200: 0x50100000, 0x1fc: 0x50200000}.items():
             w32(uc, SELF + offset, value)
@@ -205,7 +209,7 @@ def verify_hooks(helper):
         stub_targets = {}
         for index, (name, argc) in enumerate((('originalPaint', 1), ('originalBounds', 2),
                 ('originalConsole', 3), ('pushClip', 4), ('popClip', 0), ('originalChat', 4),
-                ('originalTooltip', 1), ('originalMouseMove', 2))):
+                ('originalTooltip', 1), ('originalMouseMove', 2), ('potionL4tileE', 11), ('potionL10normalTextE', 15))):
             address = 0x70000200 + index * 16
             put_global(name, address)
             stub_targets[address] = (name, argc)
@@ -213,6 +217,8 @@ def verify_hooks(helper):
         w32(uc, symbol('__imp__GetKeyState@4'), get_key_state)
         save_ini = 0x70000410
         w32(uc, symbol('__imp__WritePrivateProfileStringA@16'), save_ini)
+        w32(uc, symbol('__imp__CallWindowProcW@20'), 0x70000910)
+        forwarded_mouse = []
         saved = []
         button_calls = []
         cursor_position = None
@@ -233,9 +239,26 @@ def verify_hooks(helper):
             w32(uc, button + 0x48, 12)
         w32(uc, SELF + 0x8800 + 0xf8, button_paint)
 
+        tick_now = 10000
+        potion_requests = []
+        potion_user = SELF + 0x9500
         def hook(uc, address, size, user):
             sp = uc.reg_read(UC_X86_REG_ESP)
-            if address in cursor_apis:
+            if address in (0x70000920,0x70000930):
+                assert uc.reg_read(UC_X86_REG_ECX)==CONSOLE
+                return_from_stub(uc,1 if address==0x70000930 else 0)
+            elif address == 0x70000910:
+                forwarded_mouse.append(r32(uc,sp+12))
+                return_from_stub(uc,5,37)
+            elif address == 0x70000800:
+                return_from_stub(uc, 0, tick_now)
+            elif address == 0x70000810:
+                return_from_stub(uc, 0, potion_user)
+            elif address == 0x70000820:
+                assert uc.reg_read(UC_X86_REG_ECX) == CONSOLE
+                potion_requests.append(r32(uc, sp + 4))
+                return_from_stub(uc, 1)
+            elif address in cursor_apis:
                 name, argc = cursor_apis[address]
                 result = 1
                 if name == 'GetForegroundWindow': result = 123 if cursor_position else 0
@@ -390,6 +413,252 @@ def verify_hooks(helper):
                     assert r32(uc, symbol('barCount')) == expected
                     assert saved[-1] == (b'Bars', str(expected).encode())
                     assert pages == (r32(uc, symbol('secondPage')), r32(uc, symbol('thirdPage')))
+        # Real compiled potion logic: native calls mocked, health/slots are real layouts.
+        put_global('__imp__GetTickCount@0', 0x70000800)
+        put_global('potionL7getUserE', 0x70000810)
+        put_global('potionL7useItemE', 0x70000820)
+        w32(uc, 0x102c6ad4, CONSOLE)
+        for at, value in [(CONSOLE+0x54,SELF+0x9000),(SELF+0x9058,SELF+0x9100),
+                          (SELF+0x9138,SELF+0x9200),(SELF+0x9200,SELF+0x9300),
+                          (SELF+0x933c,SELF+0x9400),(SELF+0x97a8,SELF+0x9800),(SELF+0x9860,777)]: w32(uc,at,value)
+        put_global('potionL15lastCharacterIdE',777)
+        for off,value in [(0x218,1308),(0x214,1508),(0x7c,100),(0x78,100),(0x84,100),(0x80,100)]:w32(uc,potion_user+off,value)
+        w32(uc,SELF+0x270,0)
+        for off,value in [(0,0x55000000),(0x1b18,1),(0x1c98,1),(0x1ca0,1),(0x1b1c,123)]:w32(uc,0x50100000+off,value)
+        invoke(uc,symbol('paintHook'),[CANVAS])
+        def panel_point(x,y):
+            return (r32(uc,symbol('potionL6panelXE'))+x) | ((r32(uc,symbol('potionL6panelYE'))+y)<<16)
+        # Legacy timing regression explicitly opts into a player-defined interval.
+        assert r32(uc,symbol('potionL8settingsE'))==0
+        put_global('potionL8settingsE',3000)
+        put_global('potionL5modesE',2);put_global('potionL10draftModesE',2)
+        put_global('potionL14draftIntervalsE',3000)
+        # Arm CP binding, then select F1 in the original bar. Binding does not consume.
+        invoke(uc,symbol('mouseDownHook'),[1,panel_point(15,35)])
+        invoke(uc,symbol('mouseDownHook'),[1,250 | (222 << 16)])
+        assert r32(uc,symbol('potionL5slotsE'))==0
+        assert potion_requests==[]
+        invoke(uc,symbol('mouseDownHook'),[1,panel_point(165,35)])
+        assert uc.mem_read(symbol('potionL8settingsE')+8,1)==b'\x00', 'changes wait for Apply'
+        invoke(uc,symbol('mouseDownHook'),[1,panel_point(150,241)])
+        invoke(uc,symbol('paintHook'),[CANVAS]);assert potion_requests==[123]
+        # Stationary hover never suppresses a due potion. Actual manual requests
+        # reserve the native item path until a response, rejection or recovery.
+        put_global('potionL5modesE',0)
+        put_global('potionL15previousWndProcE',0x70000900)
+        w32(uc,0x102c6ad0,123)
+        request_start=len(potion_requests)
+        for row in range(3):
+            cursor_position=(210,210-row*46)
+            invoke(uc,symbol('paintHook'),[CANVAS])
+            assert len(potion_requests)==request_start+row+1
+        inv=SELF+0xa000
+        w32(uc,GAME+0x120,inv);w32(uc,inv+0x68,2)
+        w32(uc,inv+0x44,800);w32(uc,inv+0x48,100)
+        uc.mem_write(inv+0x4c,struct.pack('<ff',250,400))
+        cursor_position=(850,200)
+        invoke(uc,symbol('paintHook'),[CANVAS])
+        assert len(potion_requests)==request_start+4
+        assert invoke(uc,symbol('manualUseItem'),[999],ecx=CONSOLE)==1
+        assert potion_requests[-1]==999
+        count_manual=len(potion_requests)
+        for _ in range(3):invoke(uc,symbol('paintHook'),[CANVAS])
+        assert len(potion_requests)==count_manual, 'automatic requests yield to actual manual use'
+        put_global('originalItemUpdate',0x70000920)
+        put_global('originalItemList',0x70000930)
+        invoke(uc,symbol('manualItemUpdate'),[],ecx=CONSOLE)
+        invoke(uc,symbol('paintHook'),[CANVAS])
+        assert len(potion_requests)==count_manual+1, 'resume on update with cursor still in bag'
+        invoke(uc,symbol('manualUseItem'),[998],ecx=CONSOLE)
+        invoke(uc,symbol('manualItemList'),[0],ecx=CONSOLE)
+        assert uc.mem_read(symbol('manualRequestPending'),1)==b'\x00'
+        invoke(uc,symbol('manualUseItem'),[997],ecx=CONSOLE)
+        original_time=tick_now
+        tick_now+=1999
+        count_manual=len(potion_requests)
+        invoke(uc,symbol('paintHook'),[CANVAS])
+        assert len(potion_requests)==count_manual
+        tick_now+=1
+        invoke(uc,symbol('paintHook'),[CANVAS])
+        assert len(potion_requests)==count_manual+1, 'missing response must not leave automation stopped'
+        tick_now=original_time
+        uc.mem_write(symbol('manualInputPending'),b'\x01')
+        count_manual=len(potion_requests)
+        invoke(uc,symbol('paintHook'),[CANVAS])
+        assert len(potion_requests)==count_manual
+        invoke(uc,symbol('paintHook'),[CANVAS])
+        assert len(potion_requests)==count_manual+1
+        assert uc.mem_read(symbol('potionL8settingsE')+8,1)==b'\x01'
+        assert r32(uc,symbol('potionL8settingsE'))==3000
+        del potion_requests[request_start:]
+        cursor_position=None;w32(uc,GAME+0x120,0)
+        put_global('potionL5modesE',2)
+        # Status refresh may replace User without changing the character.
+        old_user=potion_user;potion_user=SELF+0xd000
+        uc.mem_write(potion_user,bytes(uc.mem_read(old_user,0x240)))
+        invoke(uc,symbol('paintHook'),[CANVAS])
+        assert uc.mem_read(symbol('potionL8settingsE')+8,1)==b'\x01', 'status cache replacement must preserve ON'
+        tick_now+=2999
+        invoke(uc,symbol('paintHook'),[CANVAS]);assert potion_requests==[123]
+        tick_now+=1
+        invoke(uc,symbol('paintHook'),[CANVAS]);assert potion_requests==[123,123]
+        tick_now+=3000;w32(uc,potion_user+0x7c,0)
+        invoke(uc,symbol('paintHook'),[CANVAS]);assert len(potion_requests)==2
+        w32(uc,potion_user+0x7c,100);w32(uc,0x50100000+0x1b1c,124)
+        invoke(uc,symbol('paintHook'),[CANVAS]);assert len(potion_requests)==2
+        assert uc.mem_read(symbol('potionL8settingsE')+8,1)==b'\x00'
+
+        uc.mem_write(symbol('potionL12draftEnabledE'),b'\x00')
+        # Viewport hook consumes both halves of a panel click, toggles exactly once.
+        put_global('potionL15previousWndProcE', 0x70000900)
+        window_proc = symbol('windowProc')
+        packed = panel_point(165,35)
+        assert invoke(uc,window_proc,[123,0x201,1,packed])==0
+        assert uc.mem_read(symbol('potionL12draftEnabledE'),1)==b'\x01'
+        assert invoke(uc,symbol('mouseDownHook'),[1,packed])==1
+        assert uc.mem_read(symbol('potionL12draftEnabledE'),1)==b'\x01', 'native dispatch must not toggle twice'
+        assert invoke(uc,window_proc,[123,0x202,0,packed])==0
+        assert uc.mem_read(symbol('potionL8settingsE')+8,1)==b'\x00'
+        invoke(uc,window_proc,[123,0x201,1,panel_point(150,241)])
+        invoke(uc,window_proc,[123,0x202,0,panel_point(150,241)])
+        assert uc.mem_read(symbol('potionL8settingsE')+8,1)==b'\x01'
+        # A native shortcut drag dropped into CP binds without deleting or using it.
+        uc.mem_map(0x50200000,0x1000)
+        w32(uc,SELF+0x278,0);w32(uc,SELF+0x260,1);w32(uc,SELF+0x25c,1)
+        assert invoke(uc,window_proc,[123,0x202,0,panel_point(15,35)])==0
+        assert r32(uc,symbol('potionL7itemIdsE'))==124
+        assert r32(uc,SELF+0x260)==0 and r32(uc,SELF+0x278)==0xffffffff
+        assert r32(uc,0x50100000+0x1ca0)==1 and len(potion_requests)==2
+        # Recolher preserves 3 item cells, aligned to the original bar's right edge.
+        invoke(uc,window_proc,[123,0x201,1,panel_point(290,10)])
+        before_mouse=len(seen)
+        assert invoke(uc,symbol('consoleHook'),[0x201,0,0],ecx=CONSOLE)==1
+        assert len(seen)==before_mouse, 'closing panel must not dispatch a world click'
+        assert invoke(uc,symbol('consoleHook'),[0x202,0,0],ecx=CONSOLE)==1
+        assert len(seen)==before_mouse
+
+        invoke(uc,window_proc,[123,0x202,0,panel_point(5,10)])
+        assert uc.mem_read(symbol('potionL9collapsedE'),1)==b'\x01'
+        w32(uc,SELF+0x44,300);w32(uc,SELF+0x48,400)
+        invoke(uc,symbol('paintHook'),[CANVAS])
+        assert r32(uc,symbol('potionL6panelXE'))==594
+        assert r32(uc,symbol('potionL6panelYE'))==262
+        # A stale panel press must not steal the next physical shortcut click,
+        # including while the potion channel is enabled.
+        uc.mem_write(symbol('ownedClick'),b'\x01')
+        uc.mem_write(symbol('worldClickOwned'),b'\x01')
+        uc.mem_write(symbol('potionL8settingsE')+8,b'\x01')
+        assert invoke(uc,window_proc,[123,0x201,1,400*65536+350])==37
+        assert forwarded_mouse[-1]==0x201
+        assert uc.mem_read(symbol('ownedClick'),1)==b'\x00'
+        assert uc.mem_read(symbol('worldClickOwned'),1)==b'\x00'
+        # Native bag drop needs no shortcut, clears only drag state, preserves item.
+        inv,grid,entries,bag_item=SELF+0xa000,SELF+0xb000,SELF+0xc000,0x50110000
+        w32(uc,GAME+0x120,inv);w32(uc,inv+0x10c,grid)
+        w32(uc,grid+0x12c,entries);w32(uc,grid+0x130,1);w32(uc,entries,bag_item)
+        w32(uc,bag_item,0x55000000);w32(uc,bag_item+0x1b1c,456)
+        w32(uc,grid+0x138,1);w32(uc,grid+0x160,0)
+        assert invoke(uc,symbol('bagUp'),[1,panel_point(15,20)],ecx=grid)==1
+        assert r32(uc,symbol('potionL5slotsE'))==0xfffffffe
+        assert r32(uc,symbol('potionL7itemIdsE'))==456
+        assert r32(uc,grid+0x138)==0 and r32(uc,grid+0x160)==0xffffffff
+        assert r32(uc,grid+0x130)==1 and r32(uc,entries)==bag_item
+        invoke(uc,window_proc,[123,0x201,1,panel_point(15,20)])
+        invoke(uc,window_proc,[123,0x202,0,panel_point(15,20)])
+        assert uc.mem_read(symbol('potionL9collapsedE'),1)==b'\x00'
+        invoke(uc,window_proc,[123,0x201,1,panel_point(165,35)])
+        invoke(uc,window_proc,[123,0x202,0,panel_point(165,35)])
+        invoke(uc,window_proc,[123,0x201,1,panel_point(150,241)])
+        invoke(uc,window_proc,[123,0x202,0,panel_point(150,241)])
+        invoke(uc,symbol('paintHook'),[CANVAS]);assert potion_requests[-1]==456
+        request_count=len(potion_requests)
+        w32(uc,grid+0x130,0);tick_now+=10000
+        invoke(uc,symbol('paintHook'),[CANVAS]);assert len(potion_requests)==request_count
+        assert uc.mem_read(symbol('potionL8settingsE')+8,1)==b'\x00'
+        # Percentage input is staged, validated and committed only by Apply.
+        invoke(uc,window_proc,[123,0x201,1,panel_point(220,35)])
+        invoke(uc,window_proc,[123,0x202,0,panel_point(220,35)])
+        invoke(uc,window_proc,[123,0x102,ord('7'),0])
+        invoke(uc,window_proc,[123,0x102,ord('5'),0])
+        assert r32(uc,symbol('potionL11percentagesE'))==90
+        invoke(uc,window_proc,[123,0x201,1,panel_point(150,241)])
+        invoke(uc,window_proc,[123,0x202,0,panel_point(150,241)])
+        assert r32(uc,symbol('potionL11percentagesE'))==75
+        assert (b'CPPercent',b'75') in saved
+        # Advanced interval edits stay pending until Apply.
+        invoke(uc,window_proc,[123,0x201,1,panel_point(40,260)])
+        invoke(uc,window_proc,[123,0x202,0,panel_point(40,260)])
+        invoke(uc,window_proc,[123,0x201,1,panel_point(255,287)])
+        invoke(uc,window_proc,[123,0x202,0,panel_point(255,287)])
+        assert r32(uc,symbol('potionL8settingsE'))==3000
+        invoke(uc,window_proc,[123,0x201,1,panel_point(150,241)])
+        invoke(uc,window_proc,[123,0x202,0,panel_point(150,241)])
+        assert r32(uc,symbol('potionL8settingsE'))==3100
+        assert (b'CPIntervalMs',b'3100') in saved
+        # A typed non-multiple of 100 near the cap must saturate, not exceed it.
+        put_global('potionL14draftIntervalsE',599950)
+        invoke(uc,window_proc,[123,0x201,1,panel_point(255,287)])
+        invoke(uc,window_proc,[123,0x202,0,panel_point(255,287)])
+        assert r32(uc,symbol('potionL14draftIntervalsE'))==600000
+        put_global('potionL14draftIntervalsE',3100)
+        # Fourth channel uses HP with its own binding and no default delay.
+        w32(uc,grid+0x130,1);w32(uc,grid+0x138,1);w32(uc,grid+0x160,0)
+        w32(uc,bag_item+0x1b1c,1540);w32(uc,bag_item+0x1b20,1540)
+        w32(uc,0x102d57b4,1)
+        assert invoke(uc,symbol('bagUp'),[1,panel_point(15,179)],ecx=grid)==1
+        assert r32(uc,symbol('potionL7itemIdsE')+12)==1540
+        assert r32(uc,0x102d57b4)==0, 'drop must unlock the native cursor'
+        assert (b'QuickHPItemType',b'1540') in saved
+        invoke(uc,window_proc,[123,0x201,1,panel_point(165,179)])
+        invoke(uc,window_proc,[123,0x202,0,panel_point(165,179)])
+        invoke(uc,window_proc,[123,0x201,1,panel_point(150,241)])
+        invoke(uc,window_proc,[123,0x202,0,panel_point(150,241)])
+        assert r32(uc,symbol('potionL8settingsE')+36)==0
+        w32(uc,potion_user+0x7c,50)
+        requests_before=len(potion_requests)
+        invoke(uc,symbol('paintHook'),[CANVAS])
+        invoke(uc,symbol('paintHook'),[CANVAS])
+        assert potion_requests[requests_before:]==[1540,1540], 'percentage mode has no hidden wait'
+        w32(uc,potion_user+0x7c,100)
+        invoke(uc,symbol('paintHook'),[CANVAS])
+        assert len(potion_requests)==requests_before+2
+        # New session: inventory may arrive after the actor.
+        w32(uc,grid+0x130,0)
+        # A real actor identity change still turns automation off.
+        uc.mem_write(symbol('potionL8settingsE')+8,b'\x01')
+        w32(uc,SELF+0x9860,778)
+        invoke(uc,symbol('paintHook'),[CANVAS])
+        assert uc.mem_read(symbol('potionL8settingsE')+8,1)==b'\x00'
+        assert uc.mem_read(symbol('potionL8settingsE')+44,1)==b'\x00'
+        w32(uc,grid+0x130,1);w32(uc,bag_item+0x1b1c,9000)
+        invoke(uc,symbol('paintHook'),[CANVAS])
+        assert r32(uc,symbol('potionL7itemIdsE')+12)==9000
+        assert uc.mem_read(symbol('potionL8settingsE')+44,1)==b'\x01'
+        assert (b'QuickHPEnabled',b'1') in saved
+        # Renderer reloads must not disable an otherwise identical item.
+        w32(uc,bag_item,0x55000100)
+        invoke(uc,symbol('paintHook'),[CANVAS])
+        assert uc.mem_read(symbol('potionL8settingsE')+44,1)==b'\x01'
+        # Replacing the stack/object ID without relogging restores by item type.
+        w32(uc,bag_item+0x1b1c,9001)
+        invoke(uc,symbol('paintHook'),[CANVAS])
+        invoke(uc,symbol('paintHook'),[CANVAS])
+        assert r32(uc,symbol('potionL7itemIdsE')+12)==9001
+        assert uc.mem_read(symbol('potionL8settingsE')+44,1)==b'\x01'
+        # Compact global toggle applies and persists directly, without Apply.
+        invoke(uc,window_proc,[123,0x201,1,panel_point(290,10)])
+        invoke(uc,window_proc,[123,0x202,0,panel_point(290,10)])
+        invoke(uc,window_proc,[123,0x201,1,panel_point(180,20)])
+        invoke(uc,window_proc,[123,0x202,0,panel_point(180,20)])
+        assert uc.mem_read(symbol('potionL8settingsE')+44,1)==b'\x00'
+        assert (b'QuickHPEnabled',b'0') in saved
+        invoke(uc,window_proc,[123,0x201,1,panel_point(180,20)])
+        invoke(uc,window_proc,[123,0x202,0,panel_point(180,20)])
+        assert uc.mem_read(symbol('potionL8settingsE')+44,1)==b'\x01'
+        assert uc.mem_read(symbol('potionL9collapsedE'),1)==b'\x01'
+        print('x86 autopotion: cursor unlock, saved item type and delayed inventory restoration passed')
+        print('x86 autopotion: compact anchor, inventory drop/use/depletion and click deduplication passed')
+        print('x86 autopotion: bind/toggle, native item request ABI, cooldown, death and item replacement passed')
         assert credits == [], 'chat must not be modified while painting'
         def message(text, channel=5):
             uc.mem_write(SELF + 0xa000, (text + '\0').encode('utf-16le'))
@@ -399,9 +668,9 @@ def verify_hooks(helper):
         message('Other system message')
         assert len(credits) == 2
         message('Welcome to Lineage II Killer')
-        assert credits[-2:] == ['Welcome to Lineage II Killer', '[ WT ] Patch desenvolvido por Wender | Bom jogo!']
+        assert credits[-2:] == ['Welcome to Lineage II Killer', '[ WT ] Patch by Wender | Enjoy the game!']
         message('Welcome to Lineage II Killer')
-        assert credits.count('[ WT ] Patch desenvolvido por Wender | Bom jogo!') == 1
+        assert credits.count('[ WT ] Patch by Wender | Enjoy the game!') == 1
     print(f'x86 DLL: {count} hit/ABI cases; paint/page restoration, local credit once and Alt/Ctrl+Alt release passed at 2 bases')
 
 
@@ -480,11 +749,40 @@ def verify_initialization(patched, helper):
             assert result == (1 if mode == 'disabled' else 0)
             assert code == original_code and table == original_table
             assert 'VirtualAlloc' not in calls
+        assert invoke(uc, syms['_C4BarsInitialize'], [nbase], cdecl=True)==result
     print('x86 initialization: install, disabled config and incompatible-version refusal passed')
+
+
+def verify_native_text(original):
+    uc=emulator();map_pe(uc,original,0x10000000)
+    renderer,table,content=SELF+0x2000,SELF+0x3000,SELF+0x4000
+    w32(uc,CANVAS+0x34,renderer);w32(uc,renderer,table)
+    w32(uc,table+0xb8,0x70000900)
+    w32(uc,CANVAS+0x38,530);w32(uc,CANVAS+0x3c,165)
+    calls=[]
+    def hook(uc,address,size,user):
+        sp=uc.reg_read(UC_X86_REG_ESP)
+        if address==0x10012ae0:
+            out=r32(uc,sp+4);w32(uc,out,80);w32(uc,out+4,12)
+            return_from_stub(uc,0,1)  # cdecl: caller removes eight arguments.
+        elif address==0x70000900:
+            assert uc.reg_read(UC_X86_REG_ECX)==renderer
+            assert r32(uc,sp+4)==540 and r32(uc,sp+8)==172
+            assert r32(uc,sp+16)==content
+            assert all(r32(uc,sp+4*i)==0 for i in range(5,20))
+            calls.append(bytes(uc.mem_read(content,100)))
+            return_from_stub(uc,19,1)
+    uc.hook_add(UC_HOOK_CODE,hook)
+    for label in ('CP','HP','MANA','Ligar','Aplicar','Uso automático de poções'):
+        data=(label+'\0').encode('utf-16le');uc.mem_write(content,data+b'\0'*(100-len(data)))
+        assert invoke(uc,0x10012c20,[10,7,0xffdfbf78,content]+[0]*11,ecx=CANVAS)==1
+        assert calls[-1].startswith(data)
+    print('native NCanvas text: original x86 routine forwards complete labels; 15-argument stack verified')
 
 
 if __name__ == '__main__':
     old, new, dll = verify_pe()
     verify_entry(old, new)
     verify_hooks(dll)
+    verify_native_text(old)
     verify_initialization(new, dll)

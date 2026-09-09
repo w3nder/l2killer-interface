@@ -104,6 +104,8 @@ def run(*args):
 
 
 def main():
+    if not L2KILLER:
+        raise SystemExit("This Auto Potion prototype requires --l2killer; its native RVAs do not support the original profile")
     source = SOURCE_PATH.read_bytes()
     if hashlib.sha256(source).hexdigest() != SOURCE_SHA256:
         raise SystemExit("NWindow.dll is not the analyzed version; refusing to patch")

@@ -1,5 +1,8 @@
 # L2Killer Interface — WT
 
+A branch `develop` reúne as mudanças em teste. Ela ainda não é um novo ZIP/release.
+Projeto independente de um player, sem vínculo com o dono ou a equipe do L2Killer.
+
 Patch de interface para o cliente **Lineage II C4 do L2Killer**, desenvolvido por **Wender (WT)**.
 
 ## Download da system pronta
@@ -19,11 +22,24 @@ O repositório é privado: o download exige uma conta com acesso.
 - Descrição nativa dos itens ao passar o mouse.
 - F1–F12 na primeira barra, Alt+F1–F12 na segunda e Ctrl+Alt+F1–F12 na terceira.
 - Crédito local, em dourado, imediatamente após a mensagem de sistema/aviso
-  que contém “Welcome” e “Lineage”: **[ WT ] Patch desenvolvido por Wender | Bom jogo!**
+  que contém “Welcome” e “Lineage”: **[ WT ] Patch by Wender | Enjoy the game!**
 - Crédito uma vez por abertura do cliente, sem temporizador e sem mensagem de rede.
 
 As preferências ficam em `C4Bars.ini`: `Bars`, `SecondPage`, `ThirdPage`,
 `ThirdModifier` e `ShowCredit`. `ShowCredit=0` desativa o crédito.
+
+## Auto Potion em desenvolvimento
+
+CP, HP, Mana e Quick HP, com itens arrastados da maleta ou dos atalhos.
+Configuração em inglês, janela nativa móvel e barra compacta para ligar/desligar.
+Itens, percentuais e preferências são restaurados na entrada do personagem.
+O jogador escolhe percentual, intervalo ou ambos; não há cooldown fixo extra
+entre poções no modo percentual.
+
+O uso manual tem prioridade enquanto aguarda atualização do inventário.
+Uma recuperação de 2 segundos evita ficar parado se a resposta não chegar.
+O cursor sobre a maleta ou a barra não pausa as poções.
+A correlação por item e o cooldown nativo continuam em pesquisa.
 
 ## Código-fonte e compilação
 
@@ -40,6 +56,10 @@ python3 patch/build_patch.py --l2killer --source /caminho/para/NWindow.dll
 clang++ -std=c++17 -Wall -Wextra -Werror patch/test_layout.cpp -o /tmp/c4bars-layout
 /tmp/c4bars-layout
 .venv/bin/python patch/test_binary.py --l2killer --source /caminho/para/NWindow.dll
+.venv/bin/python patch/test_native_window.py --l2killer --source /caminho/para/NWindow.dll
+.venv/bin/python patch/test_manual_priority.py --l2killer --source /caminho/para/NWindow.dll
+clang++ -std=c++17 -Wall -Wextra -Werror patch/test_potion_policy.cpp -o /tmp/c4bars-potions
+/tmp/c4bars-potions
 ```
 
 A entrada deve ser a **NWindow.dll original, sem o patch**, com SHA-256:
@@ -51,7 +71,7 @@ A entrada deve ser a **NWindow.dll original, sem o patch**, com SHA-256:
 O build recusa outra versão e gera `dist/C4Bars-L2Killer-teste-05/`, com as DLLs,
 configuração, instaladores opcionais e manifesto de hashes. Ele não altera a entrada.
 Sem `--source`, o perfil L2Killer procura `sources/NWindow-L2Killer.dll`.
-O perfil legado da primeira system também está preservado, sem `--l2killer`.
+Nesta branch o Auto Potion exige `--l2killer`; os endereços nativos não são compatíveis com outro perfil.
 
 ## Organização
 
