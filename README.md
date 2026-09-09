@@ -1,19 +1,20 @@
 # L2Killer Interface — WT
 
-A branch `develop` reúne as mudanças em teste. Ela ainda não é um novo ZIP/release.
+Versão **1.1.0**, validada por Wender no Windows 11 e no Wine.
+A branch `develop` recebe as próximas mudanças.
 Projeto independente de um player, sem vínculo com o dono ou a equipe do L2Killer.
 
 Patch de interface para o cliente **Lineage II C4 do L2Killer**, desenvolvido por **Wender (WT)**.
 
 ## Download da system pronta
 
-[Baixar L2Killer-System-WT.zip](https://github.com/w3nder/l2killer-interface/releases/latest/download/L2Killer-System-WT.zip)
+[Baixar L2Killer-System-WT.zip](https://interface.unkbot.com/downloads/L2Killer-System-WT.zip)
 
 Feche o jogo, guarde sua pasta `system` anterior e copie a pasta `system` do ZIP
 para o cliente L2Killer. Abra `system/l2.exe` normalmente. A DLL auxiliar já está
 incluída; não remova `C4Bars.dll`. Para desfazer, restaure a pasta anterior inteira.
 
-O repositório é privado: o download exige uma conta com acesso.
+O download no site é público; o código-fonte permanece neste repositório.
 
 ## Funcionalidades
 
@@ -28,15 +29,15 @@ O repositório é privado: o download exige uma conta com acesso.
 As preferências ficam em `C4Bars.ini`: `Bars`, `SecondPage`, `ThirdPage`,
 `ThirdModifier` e `ShowCredit`. `ShowCredit=0` desativa o crédito.
 
-## Equipamentos do alvo em desenvolvimento
+## Equipamentos do alvo
 
 Ao expandir o alvo de um jogador, exibe os ícones dos equipamentos disponíveis
 no cache do cliente abaixo de clan e ally. O nome aparece ao passar o mouse.
 Trocar de alvo ou de equipamento atualiza a lista. NPCs não recebem esse painel.
-Não mostra inventário completo, encantamentos ou slots que o servidor não enviou.
-Use `TargetEquipment=0` na seção `[C4Bars]` para desativar. Validação visual pendente.
+Mostra o enchant recebido da arma ao lado do nome. Não mostra inventário completo, enchant de armaduras ou slots que o servidor não enviou.
+Use `TargetEquipment=0` na seção `[C4Bars]` para desativar. Validado no jogo.
 
-## Auto Potion em desenvolvimento
+## Auto Potion
 
 CP, HP, Mana e Quick HP, com itens arrastados da maleta ou dos atalhos.
 Configuração em inglês, janela nativa móvel e barra compacta para ligar/desligar.
@@ -48,6 +49,15 @@ O uso manual tem prioridade enquanto aguarda atualização do inventário.
 Uma recuperação de 2 segundos evita ficar parado se a resposta não chegar.
 O cursor sobre a maleta ou a barra não pausa as poções.
 A correlação por item e o cooldown nativo continuam em pesquisa.
+
+## Comandos visuais locais
+
+- `!hero_on`: liga o efeito de hero no seu personagem.
+- `!hero_off` (ou `_hero_off`): desliga o efeito.
+- `!color_name FF0000`: muda o nick para vermelho; aceita RRGGBB.
+
+Só você vê essas mudanças, durante a sessão. Não concede hero ou habilidades
+no servidor e não altera outros jogadores. Validado por Wender no jogo.
 
 ## Código-fonte e compilação
 
