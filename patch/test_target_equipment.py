@@ -53,8 +53,8 @@ for base in (dll.u32(dll.opt+28),0x25000000):
         w32(uc,CANVAS+0x38,33);w32(uc,CANVAS+0x3c,44)
         assert invoke(uc,paint,[CANVAS],ecx=target)==7
         assert r32(uc,CANVAS+0x38)==33 and r32(uc,CANVAS+0x3c)==44
-    draw();assert loads==[1001,1002] and sizes==[124]
-    draw();assert loads==[1001,1002] and sizes==[124], 'no repeated texture load or size growth'
+    draw();assert loads==[1001,1002] and sizes==[114]
+    draw();assert loads==[1001,1002] and sizes==[114], 'no repeated texture load or size growth'
     w32(uc,user+0xbc,1003);draw();assert loads[-1]==1003
     w32(uc,target+0x374,0);draw();assert sizes[-1]==76
     w32(uc,target+0x374,1);w32(uc,user+8,1);draw();assert sizes[-1]==76, 'NPC does not get equipment panel'
@@ -63,7 +63,7 @@ for base in (dll.u32(dll.opt+28),0x25000000):
     before=len(loads);draw();assert len(loads)==before, 'missing IDs do not resolve textures'
     uc.mem_write(target+0x4c,struct.pack('<f',140))
     for i,offset in enumerate((0x94,0xac,0xb0,0xb4,0xb8,0xbc,0xc0,0xc4,0xc8,0xcc,0xd4)):w32(uc,user+offset,2000+i)
-    draw();assert sizes[-1]==180, 'narrow panels wrap all eleven received slots'
+    draw();assert sizes[-1]==132, 'narrow panels wrap all eleven received slots'
     assert 2000 in loads, 'underwear/custom tattoo slot is included'
     selected[0]=0;draw();assert sizes[-1]==76, 'lost target restores native height'
 print('Target equipment: player-only expansion, deduplication, item changes, cached textures, missing data, collapse and lost target passed at 2 bases')

@@ -4,7 +4,7 @@ Paint nativePaint=nullptr;
 bool attempted=false;
 void *owner=nullptr;
 unsigned targetId=0;
-constexpr int count=11,top=78,iconSize=24,pitch=28;
+constexpr int count=11,top=78,iconSize=14,pitch=18;
 int extraHeight=76;
 constexpr unsigned offsets[count]={0x94,0xac,0xb0,0xb4,0xb8,0xbc,0xc0,0xc4,0xc8,0xcc,0xd4};
 unsigned ids[count]={};
@@ -54,7 +54,7 @@ int __fastcall paint(void *self,void *,void *canvas) {
     const int width=static_cast<int>(field<float>(self,0x4c));
     if(width<84){reset(self);return result;}
     int columns=(width-28)/pitch;
-    if(columns>5)columns=5;
+    if(columns>count)columns=count;
     void *data=field<void *>(potion::moduleBase,0x19e494);
     auto itemData=field<Lookup>(potion::moduleBase,0x19e4e0);
     auto name=field<Name>(potion::moduleBase,0x19e4ec);
