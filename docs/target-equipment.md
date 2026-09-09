@@ -11,3 +11,5 @@ Native game data lookup IAT RVA 0x19e4e0; GL2GameData IAT 0x19e494; item icon L2
 Limitations: display only client-provided visual equipment. Jewelry, enchant values and hidden server state are not inferred. Native visual inspection still needed for clipping, background, render order and target updates.
 
 Validation: compiled x86 renderer bridge tested at two DLL bases for player-only display, repeated frames, duplicated IDs, equipment changes, empty data, NPC, collapse, lost target, width wrapping and canvas-origin restoration. Full existing regression also passed before the final width-only layout adjustment.
+
+Player validated the first in-game equipment display. Icons are now 24px with 28px spacing; compact layout regression passed at both DLL bases. Custom left/tattoo slots are not yet mapped.

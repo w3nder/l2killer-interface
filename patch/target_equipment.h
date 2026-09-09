@@ -4,8 +4,8 @@ Paint nativePaint=nullptr;
 bool attempted=false;
 void *owner=nullptr;
 unsigned targetId=0;
-constexpr int count=10,top=78,pitch=36;
-int extraHeight=92;
+constexpr int count=10,top=78,iconSize=24,pitch=28;
+int extraHeight=76;
 constexpr unsigned offsets[count]={0xac,0xb0,0xb4,0xb8,0xbc,0xc0,0xc4,0xc8,0xcc,0xd4};
 unsigned ids[count]={};
 void *textures[count]={};
@@ -53,7 +53,7 @@ int __fastcall paint(void *self,void *,void *canvas) {
     if(selected!=targetId){reset(self);targetId=selected;}
     const int width=static_cast<int>(field<float>(self,0x4c));
     if(width<84){reset(self);return result;}
-    int columns=(width-12)/pitch;
+    int columns=(width-28)/pitch;
     if(columns>5)columns=5;
     const int needed=((count+columns-1)/columns)*pitch+20;
     if(enlarged&&needed!=extraHeight){reset(self);targetId=selected;}
@@ -97,8 +97,8 @@ int __fastcall paint(void *self,void *,void *canvas) {
     int hovered=-1;
     for(int i=0;i<used;++i) {
         const int sx=16+(i%columns)*pitch,sy=top+4+(i/columns)*pitch;
-        if(textures[i])potion::tile(canvas,sx,sy,32,32,0,0,32,32,textures[i],255,1);
-        if(hover&&cursor.x>=x+sx&&cursor.x<x+sx+32&&cursor.y>=y+sy&&cursor.y<y+sy+32)hovered=i;
+        if(textures[i])potion::tile(canvas,sx,sy,iconSize,iconSize,0,0,32,32,textures[i],255,1);
+        if(hover&&cursor.x>=x+sx&&cursor.x<x+sx+iconSize&&cursor.y>=y+sy&&cursor.y<y+sy+iconSize)hovered=i;
     }
     if(!used)potion::text(canvas,16,top+8,L"No equipment data",0xffa3a3a3);
     if(hovered>=0){

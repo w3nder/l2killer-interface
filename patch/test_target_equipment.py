@@ -53,15 +53,15 @@ for base in (dll.u32(dll.opt+28),0x25000000):
         w32(uc,CANVAS+0x38,33);w32(uc,CANVAS+0x3c,44)
         assert invoke(uc,paint,[CANVAS],ecx=target)==7
         assert r32(uc,CANVAS+0x38)==33 and r32(uc,CANVAS+0x3c)==44
-    draw();assert loads==[1001,1002] and sizes==[168]
-    draw();assert loads==[1001,1002] and sizes==[168], 'no repeated texture load or size growth'
+    draw();assert loads==[1001,1002] and sizes==[152]
+    draw();assert loads==[1001,1002] and sizes==[152], 'no repeated texture load or size growth'
     w32(uc,user+0xbc,1003);draw();assert loads[-1]==1003
     w32(uc,target+0x374,0);draw();assert sizes[-1]==76
     w32(uc,target+0x374,1);w32(uc,user+8,1);draw();assert sizes[-1]==76, 'NPC does not get equipment panel'
     w32(uc,user+8,0);w32(uc,user+0x18,456)
     for offset in (0xb0,0xbc,0xcc):w32(uc,user+offset,0)
     before=len(loads);draw();assert len(loads)==before, 'missing IDs do not resolve textures'
-    uc.mem_write(target+0x4c,struct.pack('<f',170))
-    draw();assert sizes[-1]==204, 'narrow panels wrap icons to a third row'
+    uc.mem_write(target+0x4c,struct.pack('<f',140))
+    draw();assert sizes[-1]==180, 'narrow panels wrap icons to a third row'
     selected[0]=0;draw();assert sizes[-1]==76, 'lost target restores native height'
 print('Target equipment: player-only expansion, deduplication, item changes, cached textures, missing data, collapse and lost target passed at 2 bases')
