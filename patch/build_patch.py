@@ -142,24 +142,33 @@ def main():
         f"-DORIGINAL_ENTRY_RVA={old_entry}", f"-DINIT_IAT_RVA={iat}", "-o", scratch / "entry.o")
     run("i686-w64-mingw32-objcopy", "-O", "binary", "--only-section=.text",
         scratch / "entry.o", scratch / "entry.bin")
-    entry = append((scratch / "entry.bin").read_bytes(), 16)
+    imports_size = len(blob)
+    entry = append((scratch / "entry.bin").read_bytes(), section_alignment)
+    code_offset = entry - section_rva
+    code_size = len(blob) - code_offset
     header_offset = pe.table + len(pe.sections) * 40
-    if header_offset + 40 > pe.u32(pe.opt + 60) or any(pe.data[header_offset:header_offset + 40]):
+    if header_offset + 80 > pe.u32(pe.opt + 60) or any(pe.data[header_offset:header_offset + 80]):
         raise SystemExit("No free PE section header")
     raw_size = align(len(blob), file_alignment)
     pe.data.extend(b"\0" * (raw - len(pe.data)))
     pe.data.extend(blob)
     pe.data.extend(b"\0" * (raw_size - len(blob)))
     struct.pack_into("<8sIIIIIIHHI", pe.data, header_offset,
-                     b".c4bars\0", len(blob), section_rva, raw_size, raw, 0, 0, 0, 0, 0x60000060)
-    struct.pack_into("<H", pe.data, pe.pe + 6, len(pe.sections) + 1)
-    pe.set32(pe.opt + 4, pe.u32(pe.opt + 4) + raw_size)
+                     b".c4imp\0", imports_size, section_rva, code_offset, raw, 0, 0, 0, 0, 0xc0000040)
+    struct.pack_into("<8sIIIIIIHHI", pe.data, header_offset + 40,
+                     b".c4code\0", code_size, entry, raw_size - code_offset,
+                     raw + code_offset, 0, 0, 0, 0, 0x60000020)
+    struct.pack_into("<H", pe.data, pe.pe + 6, len(pe.sections) + 2)
+    pe.set32(pe.opt + 4, pe.u32(pe.opt + 4) + raw_size - code_offset)
+    pe.set32(pe.opt + 8, pe.u32(pe.opt + 8) + code_offset)
     pe.set32(pe.opt + 16, entry)
     pe.set32(pe.opt + 56, align(section_rva + len(blob), section_alignment))
     struct.pack_into("<II", pe.data, pe.opt + 96 + 8, section_rva, descriptor_bytes)
     # Certificate and bound-import metadata no longer describe the edited file.
-    # IAT is now discontiguous: import descriptors define both old and new thunks.
-    for index in (4, 11, 12):
+    # Preserve the original IAT directory so Windows unprotects its original
+    # thunk pages. The added IAT is in a separate writable, non-executable
+    # section; entry code is in a separate read/execute section.
+    for index in (4, 11):
         struct.pack_into("<II", pe.data, pe.opt + 96 + index * 8, 0, 0)
     pe.set32(pe.opt + 64, checksum(pe.data, pe.opt + 64))
     (out / "NWindow.dll").write_bytes(pe.data)

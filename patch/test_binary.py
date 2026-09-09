@@ -124,6 +124,14 @@ def verify_pe():
     for a, b in zip(old_imports, new_imports):
         assert [a[0], *a[2:]] == [b[0], *b[2:]]
     added = new_imports[-1]
+    assert patched.directory(12) == original.directory(12), 'Preserve original Windows IAT protection range'
+    def section_flags(rva):
+        for i, (_, size, start, rawsize, _) in enumerate(patched.sections):
+            if start <= rva < start + max(size, rawsize):
+                return patched.u32(patched.table + i * 40 + 36)
+        raise AssertionError('RVA outside sections')
+    assert section_flags(added[4]) & 0xe0000000 == 0xc0000000, 'New IAT must be read/write, not executable'
+    assert section_flags(patched.u32(patched.opt + 16)) & 0xe0000000 == 0x60000000, 'Entry must be read/execute, not writable'
     assert patched.cstring(added[3]) == 'C4Bars.dll'
     thunk = patched.u32(patched.offset(added[0]))
     assert patched.cstring(thunk + 2) == 'C4BarsInitialize'

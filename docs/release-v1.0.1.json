@@ -1,0 +1,11 @@
+{
+  "version": "1.0.1",
+  "original_sha256": "1fdcf9b455ef7ff93dfedeb9667e61a9874e31fe125982437d98c4d0adea3cce",
+  "patched_sha256": "c9fca1c2465666134d329f9af7039db4f9e8892ed3a0837951b43f65669d3841",
+  "dll_sha256": "082acc5547ecd9526cf544c550aaa90cd35cc066f014c93be243a6d71b64f6c7",
+  "original_entry_rva": "0x17346a",
+  "entry_rva": "0x371000",
+  "init_iat_rva": "0x370154",
+  "section_rva": "0x370000",
+  "status": "Windows 11 startup confirmed by user on 2026-09-09; x86 regression tests passed. Wine startup not retested for this revision."
+}
