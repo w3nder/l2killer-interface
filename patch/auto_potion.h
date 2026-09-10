@@ -415,6 +415,7 @@ bool manualItemInteraction(void *) {
     manualInputPending=false;
     return input||manualRequestWaiting();
 }
+unsigned nextPotionChannel=0;
 void tick(void *self) {
     void *console=field<void *>(moduleBase,0x2c6ad4);
     if(!console)return;
@@ -430,7 +431,7 @@ void tick(void *self) {
     // Compare the local actor's object ID, never the cache pointer.
     if(characterId!=lastCharacterId) {
         for(int i=0;i<4;++i){settings[i].enabled=false;draftEnabled[i]=false;restorePending[i]=savedTypes[i]!=0;slots[i]=-1;itemIds[i]=0;}
-        manualRequestPending=false;manualInputPending=false;
+        manualRequestPending=false;manualInputPending=false;nextPotionChannel=0;
         lastCharacterId=characterId;
         log("autopotion character changed: id=");number(characterId);log("\r\n");
     }
@@ -441,7 +442,10 @@ void tick(void *self) {
         {field<int>(user,0x7c),field<int>(user,0x78)}, {field<int>(user,0x84),field<int>(user,0x80)}, {field<int>(user,0x7c),field<int>(user,0x78)}};
     const uint32_t now=GetTickCount();
     const bool manual=manualItemInteraction(self);
-    for(int i=0;i<4;++i) {
+    const unsigned first=nextPotionChannel;
+    unsigned requests[4]={};
+    for(unsigned step=0;step<4;++step) {
+        const unsigned i=(first+step)%4;
         settings[i].missing=autopotion::missingForPercent(values[i].maximum,percentages[i]);
         void *potion=boundItem(self,i);
         // Textures are renderer resources and can be reloaded independently
@@ -454,8 +458,17 @@ void tick(void *self) {
         }
         if(manual)continue;
         if(!autopotion::due(settings[i],states[i],values[i],now,values[1].current>0,matches,false,static_cast<autopotion::Mode>(modes[i])))continue;
+        requests[i]=itemIds[i];
+    }
+    // Snapshot every eligible channel before native use can update inventory.
+    // Dispatch all due channels in the same update; no shared cooldown or queue.
+    bool dispatched=false;
+    for(unsigned step=0;step<4;++step){
+        const unsigned i=(first+step)%4;
+        if(!requests[i])continue;
+        if(!dispatched){nextPotionChannel=(i+1)%4;dispatched=true;}
         autopotion::attempted(states[i],now);
-        useItem(console,itemIds[i]);
+        useItem(console,requests[i]);
     }
 }
 void text(void *canvas,int x,int y,const wchar_t *s,unsigned color=0xffdcdcdc) {

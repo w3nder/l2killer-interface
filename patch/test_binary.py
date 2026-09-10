@@ -623,6 +623,37 @@ def verify_hooks(helper):
         w32(uc,potion_user+0x7c,100)
         invoke(uc,symbol('paintHook'),[CANVAS])
         assert len(potion_requests)==requests_before+2
+        # All four channels remain low: a CP deficit must not monopolize requests.
+        w32(uc,grid+0x130,4)
+        for i in range(4):
+            ptr=bag_item+i*0x2000
+            w32(uc,entries+i*4,ptr)
+            for off,val in [(0x1b18,1),(0x1c98,1),(0x1ca0,10),(0x1b1c,10000+i),(0x1b20,20000+i)]:w32(uc,ptr+off,val)
+            w32(uc,symbol('potionL5slotsE')+i*4,0xfffffffe)
+            w32(uc,symbol('potionL7itemIdsE')+i*4,10000+i)
+            w32(uc,symbol('potionL5modesE')+i*4,0)
+            uc.mem_write(symbol('potionL8settingsE')+i*12+8,b'\x01')
+            w32(uc,symbol('potionL11percentagesE')+i*4,90)
+        for off in (0x218,0x7c,0x84):w32(uc,potion_user+off,1)
+        put_global('potionL17nextPotionChannelE',0)
+        start=len(potion_requests)
+        for _ in range(8):invoke(uc,symbol('paintHook'),[CANVAS])
+        assert len(potion_requests[start:])==32
+        for j in range(8):
+            assert set(potion_requests[start+j*4:start+j*4+4])=={10000,10001,10002,10003}, 'all due channels dispatch in the same update'
+        assert [potion_requests[start+j*4] for j in range(8)]==[10000,10001,10002,10003]*2
+        # Manual input yields without advancing the automatic turn.
+        put_global('potionL18manualInputPendingE',1)
+        before=len(potion_requests)
+        invoke(uc,symbol('paintHook'),[CANVAS]);assert len(potion_requests)==before
+        invoke(uc,symbol('paintHook'),[CANVAS]);assert potion_requests[before:]==[10000,10001,10002,10003]
+        # Disabled CP is skipped, rather than delaying the other channels.
+        uc.mem_write(symbol('potionL8settingsE')+8,b'\x00')
+        start=len(potion_requests)
+        for _ in range(6):invoke(uc,symbol('paintHook'),[CANVAS])
+        assert len(potion_requests[start:])==18
+        for j in range(6):assert set(potion_requests[start+j*3:start+j*3+3])=={10001,10002,10003}
+        w32(uc,bag_item+0x1b20,1540)
         # New session: inventory may arrive after the actor.
         w32(uc,grid+0x130,0)
         # A real actor identity change still turns automation off.
