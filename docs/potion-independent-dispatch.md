@@ -14,5 +14,5 @@ priority. Each channel keeps its own configured interval and state.
 Executable x86 regression at two bases covers four simultaneously low channels,
 every channel dispatched in every update, rotating first position, disabled CP,
 and yielding to manual input. Existing bars, binding, persistence and interval
-regression passed. Root cause and resolution still require live reproduction;
-no public release or ZIP has been updated.
+regression passed. Wender confirmed the behavior in the local client and then on Windows on
+2026-09-10. Released as 1.1.1.

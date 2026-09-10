@@ -14,7 +14,7 @@ Três barras de atalhos, Auto Potion e equipamentos do alvo no cliente clássico
 > Projeto independente de um player. Não é uma interface oficial e não tem
 > vínculo com o dono ou a administração do L2Killer.
 
-## O que tem na 1.1.0
+## O que tem na 1.1.1
 
 | Recurso | Como funciona |
 | --- | --- |
@@ -28,6 +28,13 @@ Três barras de atalhos, Auto Potion e equipamentos do alvo no cliente clássico
 **Validada por WT no Windows 11 e no Wine.** Outros clientes e versões de DLL não
 são compatíveis automaticamente. O patch só mostra equipamentos recebidos pelo
 cliente; não revela inventários, joias ausentes ou enchant das armaduras.
+
+### Correção da 1.1.1
+
+Auto Potion avalia todos os canais antes de enviar os pedidos. CP, HP, Mana e
+Quick HP podem ser solicitadas na mesma atualização, sem esperar outra poção
+completar. Configurações individuais e prioridade manual são preservadas.
+Correção validada por WT no Windows.
 
 ## Instalar
 
