@@ -31,7 +31,9 @@ for base in (dll.u32(dll.opt+28),0x25000000):
             # native request body, preserving thiscall args and stack unwind.
             assert uc.reg_read(UC_X86_REG_ECX)==CONSOLE
             bp=uc.reg_read(UC_X86_REG_EBP)
-            requests.append(r32(uc,bp+8))
+            object_id=r32(uc,bp+8)
+            assert uc.mem_read(sym('manualRequestPending'),1)==(b'\x00' if object_id==888 else b'\x01')
+            requests.append(object_id)
             uc.reg_write(UC_X86_REG_EBP,r32(uc,bp))
             uc.reg_write(UC_X86_REG_ESP,bp+4)
             return_from_stub(uc,1,1)
@@ -46,7 +48,7 @@ for base in (dll.u32(dll.opt+28),0x25000000):
     assert bytes(uc.mem_read(0x10066480,1))==b'\xe9'
     # Native inventory and shortcut callers traverse the detour.
     invoke(uc,0x10066480,[777],ecx=CONSOLE)
-    assert requests==[777] and uc.mem_read(sym('manualRequestPending'),1)==b'\x01'
+    assert requests==[777] and uc.mem_read(sym('manualRequestPending'),1)==b'\x00'
     invoke(uc,r32(uc,0x101b354c),[],ecx=CONSOLE)
     assert updates==[0x10066620] and uc.mem_read(sym('manualRequestPending'),1)==b'\x00'
     # Automatic requests bypass only the observer, not the native item routine.

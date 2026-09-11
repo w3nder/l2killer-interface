@@ -26,8 +26,6 @@ Clip pushClip;
 PopClip popClip;
 int barCount = 3;
 int secondPage = 1, thirdPage = 2;
-int thirdModifier = 0;
-int heldPages[12] = {-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1};
 char iniPath[MAX_PATH];
 HANDLE logFile = INVALID_HANDLE_VALUE;
 bool loggedPaint = false;
@@ -191,7 +189,7 @@ int __fastcall paintHook(void *self, void *, void *canvas) {
     field<int>(canvas, 0x3c) = geometry.y;
     pushClip(canvas, geometry.x, geometry.y, static_cast<int>(field<float>(self, 0x4c)),
              static_cast<int>(field<float>(self, 0x50)));
-    void *toggle = field<void *>(self, barCount > 1 ? 0x24c : 0x250);
+    void *toggle = field<void *>(self, barCount == 3 ? 0x24c : 0x250);
     if (toggle) {
         const int bx = field<int>(toggle, 0x44), by = field<int>(toggle, 0x48);
         field<int>(toggle, 0x44) = geometry.x + (geometry.horizontal ? 489 : 31);
@@ -280,7 +278,7 @@ int __fastcall mouseDownHook(void *self, void *, unsigned flags, unsigned packed
             }
         }
         if (along >= 489 && along < 504 && cross >= 31 && cross < 46) {
-            barCount = barCount > 1 ? 1 : 3;
+            barCount = barCount % 3 + 1;
             hoveredRow = 0;
             field<int>(self, 0x278) = field<int>(self, 0x27c) = -1;
             field<int>(self, 0x260) = field<int>(self, 0x25c) = 0;
@@ -295,43 +293,14 @@ int __fastcall mouseDownHook(void *self, void *, unsigned flags, unsigned packed
 }
 
 int __fastcall consoleHook(void *self, void *, unsigned message, unsigned key, unsigned flags) {
-    if((message==WM_KEYDOWN||message==WM_SYSKEYDOWN)&&key>=VK_F1&&key<=VK_F12)
-        potion::manualInputPending=true;
     if(potion::consumeWorldMouse(message,key))return 1;
     if(potion::editing>=0 && (message==WM_CHAR ||
        ((message==WM_KEYDOWN||message==WM_KEYUP) &&
         ((key>='0'&&key<='9')||(key>=VK_NUMPAD0&&key<=VK_NUMPAD9)||
          key==VK_BACK||key==VK_RETURN||key==VK_ESCAPE))))return 1;
-    const bool down = message == WM_KEYDOWN || message == WM_SYSKEYDOWN;
-    const bool up = message == WM_KEYUP || message == WM_SYSKEYUP;
-    if ((!down && !up) || key < VK_F1 || key > VK_F12)
-        return originalConsole(self, message, key, flags);
-    void *game = field<void *>(self, 0x3bf4);
-    void *shortcut = game ? field<void *>(game, 0x15c) : nullptr;
-    if (!supported(shortcut)) return originalConsole(self, message, key, flags);
-    const unsigned slot = key - VK_F1;
-    int page = heldPages[slot];
-    if (down && page < 0) {
-        const bool alt = (GetKeyState(VK_MENU) & 0x8000) != 0;
-        const bool ctrl = (GetKeyState(VK_CONTROL) & 0x8000) != 0;
-        const bool shift = (GetKeyState(VK_SHIFT) & 0x8000) != 0;
-        int row = 0;
-        if ((thirdModifier == 0 && ctrl && alt) || (thirdModifier == 1 && shift && !alt)) row = 2;
-        else if (alt && !ctrl) row = 1;
-        if (row == 0 || row >= barCount) return originalConsole(self, message, key, flags);
-        page = layout(shortcut).rowPage(row);
-        heldPages[slot] = page;
-        log("key: page="); number(page + 1); log(" slot="); number(slot + 1); log("\r\n");
-    }
-    if (page < 0) return originalConsole(self, message, key, flags);
-    const int savedPage = field<int>(shortcut, 0x270);
-    field<int>(shortcut, 0x270) = page;
-    // Route Alt system-key events through the same native shortcut path as F1.
-    // Remember the page until key-up, even if Alt is released first.
-    originalConsole(self, down ? WM_KEYDOWN : WM_KEYUP, key, flags & ~(1u << 29));
-    field<int>(shortcut, 0x270) = savedPage;
-    if (up) heldPages[slot] = -1;
-    return 1;
+    // Preserve the original C4 keyboard handling, including Alt+F1..F10
+    // page selection. Additional visible rows are operated with the mouse.
+    return originalConsole(self, message, key, flags);
 }
 
 void putJump(unsigned char *at, const void *to) {
@@ -383,7 +352,6 @@ extern "C" __declspec(dllexport) int __cdecl C4BarsInitialize(HMODULE module) {
     }
     barCount = static_cast<int>(GetPrivateProfileIntA("C4Bars", "Bars", 3, path));
     if (barCount < 1 || barCount > 3) barCount = 3;
-    thirdModifier = GetPrivateProfileIntA("C4Bars", "ThirdModifier", 0, path) == 1 ? 1 : 0;
     creditEnabled = GetPrivateProfileIntA("C4Bars", "ShowCredit", 1, path) != 0;
     secondPage = GetPrivateProfileIntA("C4Bars", "SecondPage", 2, path) - 1;
     thirdPage = GetPrivateProfileIntA("C4Bars", "ThirdPage", 3, path) - 1;

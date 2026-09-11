@@ -21,10 +21,9 @@ O QUE TESTAR
 - Ha um pequeno + ou - amarelo no canto restante dos controles da barra principal.
   Clique para alternar 1 -> 2 -> 3 -> 1 barras. A escolha fica no C4Bars.ini.
 - F1 a F12: barra principal.
-- Alt+F1 a F12: segunda barra, quando visivel.
-- Ctrl+Alt+F1 a F12: terceira barra, quando visivel.
-  Para usar Shift+F1 a F12 na terceira, edite ThirdModifier=1 no C4Bars.ini,
-  com o jogo fechado. O padrao e ThirdModifier=0.
+- Alt+F1 a F10: seletor de paginas original do C4.
+- Barras extras: uso pelo mouse.
+- Botao de barras: alterna 1, 2 e 3 barras visiveis.
 - Teste primeiro com uma acao simples em cada pagina e clique nos tres slots.
 - Depois confira arrastar um atalho, usar pelo teclado, cooldown e relogar.
 

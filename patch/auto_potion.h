@@ -46,9 +46,8 @@ HWND inputWindow=nullptr;
 bool ownedClick=false;
 bool worldClickOwned=false;
 bool nativeClickSequence=false;
-bool manualInputPending=false;
 Mouse originalBagUp=nullptr, originalShortcutUp=nullptr;
-constexpr int width=300, height=270, compactWidth=210, compactHeight=46;
+constexpr int width=300, height=270, compactWidth=154, compactHeight=34;
 int panelWidth() {return collapsed?compactWidth:width;}
 int panelHeight() {return collapsed?compactHeight:height+(advanced?140:0);}
 void anchor(void *self) {
@@ -136,7 +135,7 @@ void *boundItem(void *self,int channel) {
 int dropRow(int x,int y) {
     if(!inside(x,y))return -1;
     x-=panelX;y-=panelY;
-    if(collapsed)return x>=5&&x<165&&y>=6&&y<40?displayOrder[(x-5)/40]:-1;
+    if(collapsed)return x>=4&&x<124&&y>=4&&y<30?displayOrder[(x-4)/30]:-1;
     if(x<8||x>=42||y<34)return -1;
     const int row=(y-32)/48,local=(y-32)%48;
     return row<4&&local>=2&&local<36?displayOrder[row]:-1;
@@ -224,7 +223,7 @@ void toggleAll(void *self) {
 bool click(void *self,int x,int y) {
     if(inside(x,y)) {
         x-=panelX;y-=panelY;
-        if(collapsed){if(x>=166){toggleAll(self);return true;}beginSettings();collapsed=false;binding=-1;anchor(self);return true;}
+        if(collapsed){if(x>=126){toggleAll(self);return true;}beginSettings();collapsed=false;binding=-1;anchor(self);return true;}
         if(y<28){if(!configWindow){editing=-1;collapsed=true;binding=-1;anchor(self);}return true;}
         finishEditing();
         if(y>=228&&y<254&&x>=106&&x<194) {
@@ -329,7 +328,7 @@ LRESULT CALLBACK windowProc(HWND window,UINT message,WPARAM wparam,LPARAM lparam
     if(message==WM_NCDESTROY) {
         const WNDPROC original=previousWndProc;
         previousWndProc=nullptr;inputWindow=nullptr;
-        ownedClick=false;worldClickOwned=false;nativeClickSequence=false;manualInputPending=false;
+        ownedClick=false;worldClickOwned=false;nativeClickSequence=false;
         return CallWindowProcW(original,window,message,wparam,lparam);
     }
     // A new physical press starts a new ownership sequence. Engine mouse
@@ -338,8 +337,6 @@ LRESULT CALLBACK windowProc(HWND window,UINT message,WPARAM wparam,LPARAM lparam
     if(message==WM_LBUTTONDOWN||message==WM_LBUTTONDBLCLK) {
         ownedClick=false;worldClickOwned=false;nativeClickSequence=false;
     }
-    if((message==WM_KEYDOWN||message==WM_SYSKEYDOWN)&&wparam>=VK_F1&&wparam<=VK_F12)
-        manualInputPending=true;
     if(editKey(message,wparam))return 0;
     if(nativeDragInput(window,message,wparam,lparam))return 0;
     if((message==WM_LBUTTONDOWN||message==WM_LBUTTONDBLCLK)&&configWindow&&!collapsed) {
@@ -411,9 +408,7 @@ void restoreBindings() {
 }
 #include "manual_item_priority.h"
 bool manualItemInteraction(void *) {
-    const bool input=manualInputPending;
-    manualInputPending=false;
-    return input||manualRequestWaiting();
+    return manualRequestWaiting();
 }
 unsigned nextPotionChannel=0;
 void tick(void *self) {
@@ -431,7 +426,7 @@ void tick(void *self) {
     // Compare the local actor's object ID, never the cache pointer.
     if(characterId!=lastCharacterId) {
         for(int i=0;i<4;++i){settings[i].enabled=false;draftEnabled[i]=false;restorePending[i]=savedTypes[i]!=0;slots[i]=-1;itemIds[i]=0;}
-        manualRequestPending=false;manualInputPending=false;nextPotionChannel=0;
+        manualRequestPending=false;nextPotionChannel=0;
         lastCharacterId=characterId;
         log("autopotion character changed: id=");number(characterId);log("\r\n");
     }
@@ -485,13 +480,15 @@ void background(void *self,void *canvas,int x,int y,int w,int h) {
     tile(canvas,x,y,w,h,1,1,1,1,texture,255,1);
     if(w>2&&h>2)tile(canvas,x+1,y+1,w-2,h-2,16,16,1,1,texture,255,1);
 }
-void activeEffect(void *self,void *canvas,int channel,int x,int y) {
+void *compactToggleTextures[2]={};
+bool compactToggleLoaded=false;
+void activeEffect(void *self,void *canvas,int channel,int x,int y,int size=32) {
     if(!settings[channel].enabled)return;
     void *effect=field<void *>(self,0x214);
     if(!effect)return;
     const unsigned old=field<unsigned>(effect,0xb0);
     field<unsigned>(effect,0xb0)=0x41100000; // Same material setting as native active skills.
-    tile(canvas,x,y,32,32,0,0,32,32,effect,255,1);
+    tile(canvas,x,y,size,size,0,0,32,32,effect,255,1);
     field<unsigned>(effect,0xb0)=old;
 }
 void paint(void *self,void *canvas) {
@@ -515,14 +512,22 @@ void paint(void *self,void *canvas) {
     }
     if(collapsed) {
         for(int visual=0;visual<4;++visual) {
-            const int i=displayOrder[visual],x=5+visual*40;void *p=boundItem(self,i);
-            tile(canvas,x,6,34,34,0,0,34,34,field<void *>(self,0x20c),255,1);
-            if(p)tile(canvas,x+1,7,32,32,0,0,32,32,field<void *>(p,0),255,1);
-            else text(canvas,x+5,15,names[i],0xffdfbf78);
-            if(p)activeEffect(self,canvas,i,x+1,7);
+            const int i=displayOrder[visual],x=4+visual*30;void *p=boundItem(self,i);
+            tile(canvas,x,4,26,26,0,0,34,34,field<void *>(self,0x20c),255,1);
+            if(p)tile(canvas,x+1,5,24,24,0,0,32,32,field<void *>(p,0),255,1);
+            else text(canvas,x+2,11,names[i],0xffdfbf78);
+            if(p)activeEffect(self,canvas,i,x+1,5,24);
         }
-        background(self,canvas,167,6,41,34);
-        text(canvas,171,16,anyEnabled()?L"Stop":L"Enable",anyEnabled()?0xff88dd88:0xffdfbf78);
+        if(!compactToggleLoaded&&moduleBase) {
+            using LoadTexture=void *(__thiscall *)(void *,const wchar_t *,int);
+            auto load=reinterpret_cast<LoadTexture>(moduleBase+0x2b490);
+            compactToggleTextures[0]=load(self,L"L2UI.Control.CheckBox",1);
+            compactToggleTextures[1]=load(self,L"L2UI.Control.CheckBox_Checked",1);
+            compactToggleLoaded=true;
+        }
+        background(self,canvas,127,4,24,26);
+        void *toggle=compactToggleTextures[anyEnabled()?1:0];
+        if(toggle)tile(canvas,131,9,16,16,0,0,16,16,toggle,255,1);
     } else {
         if(!configWindow){
             text(canvas,10,7,L"Auto Potion Settings",0xffdfbf78);

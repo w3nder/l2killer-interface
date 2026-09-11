@@ -214,7 +214,6 @@ def verify_hooks(helper):
             put_global(name, address)
             stub_targets[address] = (name, argc)
         get_key_state = 0x70000400
-        w32(uc, symbol('__imp__GetKeyState@4'), get_key_state)
         save_ini = 0x70000410
         w32(uc, symbol('__imp__WritePrivateProfileStringA@16'), save_ini)
         w32(uc, symbol('__imp__CallWindowProcW@20'), 0x70000910)
@@ -279,6 +278,8 @@ def verify_hooks(helper):
                     return bytes(data)
                 saved.append((string_at(r32(uc, sp + 8)), string_at(r32(uc, sp + 12))))
                 return_from_stub(uc, 4)
+            elif address == 0x1002b490:
+                return_from_stub(uc, 2, 0x55000000)
             elif address == get_key_state:
                 key = r32(uc, sp + 4)
                 return_from_stub(uc, 1, 0x8000 if key in modifiers else 0)
@@ -377,18 +378,24 @@ def verify_hooks(helper):
                 invoke(uc, symbol('paintHook'), [CANVAS])
                 assert r32(uc, SELF + 0x27c) == 0xffffffff
                 cursor_position = None
-        for modifier, expected_page in [({0x12}, 4), ({0x12, 0x11}, 7)]:
-            modifiers.clear(); modifiers.update(modifier)
-            seen.clear()
+        # Alt+F1..F10 must reach the native page selector unchanged, not use items.
+        for key in range(0x70, 0x7a):
+            modifiers.clear(); modifiers.add(0x12)
             w32(uc, SELF + 0x270, 9)
-            assert invoke(uc, symbol('consoleHook'), [0x104, 0x70, 1 << 29], ecx=CONSOLE) == 1
-            assert seen[-1] == ('originalConsole', 0x100, 0x70, expected_page)
-            assert r32(uc, SELF + 0x270) == 9
-            # Alt released before F1 still releases the original selected page.
-            modifiers.clear()
-            assert invoke(uc, symbol('consoleHook'), [0x101, 0x70, 0], ecx=CONSOLE) == 1
-            assert seen[-1] == ('originalConsole', 0x101, 0x70, expected_page)
-            assert r32(uc, SELF + 0x270) == 9
+            for message in (0x104, 0x105):
+                seen.clear()
+                invoke(uc, symbol('consoleHook'), [message, key, 1 << 29], ecx=CONSOLE)
+                assert seen == [('originalConsole', message, key, 9)]
+                assert r32(uc, SELF + 0x270) == 9
+        # All F-key combinations preserve native messages and the active page.
+        for modifier in (set(), {0x10}, {0x11}, {0x12, 0x11}):
+            modifiers.clear(); modifiers.update(modifier)
+            for key in range(0x70, 0x7c):
+                for message in (0x100, 0x101, 0x104, 0x105):
+                    seen.clear()
+                    invoke(uc, symbol('consoleHook'), [message, key, 0], ecx=CONSOLE)
+                    assert seen == [('originalConsole', message, key, 9)]
+        modifiers.clear()
         for horizontal in (0, 1):
             w32(uc, SELF + 0x264, horizontal)
             for origin in (0, 200):
@@ -409,7 +416,7 @@ def verify_hooks(helper):
                                               b'01' if expected == 0 else b'10')
                 x, y = ((origin + 495, origin + 37) if horizontal else (origin + 37, origin + 495))
                 pages = (r32(uc, symbol('secondPage')), r32(uc, symbol('thirdPage')))
-                for expected in (1, 3):
+                for expected in (1, 2, 3):
                     invoke(uc, symbol('mouseDownHook'), [1, x | (y << 16)])
                     assert r32(uc, symbol('barCount')) == expected
                     assert saved[-1] == (b'Bars', str(expected).encode())
@@ -464,31 +471,14 @@ def verify_hooks(helper):
         assert potion_requests[-1]==999
         count_manual=len(potion_requests)
         for _ in range(3):invoke(uc,symbol('paintHook'),[CANVAS])
-        assert len(potion_requests)==count_manual, 'automatic requests yield to actual manual use'
-        put_global('originalItemUpdate',0x70000920)
-        put_global('originalItemList',0x70000930)
-        invoke(uc,symbol('manualItemUpdate'),[],ecx=CONSOLE)
-        invoke(uc,symbol('paintHook'),[CANVAS])
-        assert len(potion_requests)==count_manual+1, 'resume on update with cursor still in bag'
-        invoke(uc,symbol('manualUseItem'),[998],ecx=CONSOLE)
-        invoke(uc,symbol('manualItemList'),[0],ecx=CONSOLE)
+        assert len(potion_requests)==count_manual+3, 'no inventory response or time advance needed after manual use'
         assert uc.mem_read(symbol('manualRequestPending'),1)==b'\x00'
-        invoke(uc,symbol('manualUseItem'),[997],ecx=CONSOLE)
-        original_time=tick_now
-        tick_now+=1999
+        # F-key skills must not suppress automatic items without a real item request.
         count_manual=len(potion_requests)
-        invoke(uc,symbol('paintHook'),[CANVAS])
-        assert len(potion_requests)==count_manual
-        tick_now+=1
-        invoke(uc,symbol('paintHook'),[CANVAS])
-        assert len(potion_requests)==count_manual+1, 'missing response must not leave automation stopped'
-        tick_now=original_time
-        uc.mem_write(symbol('manualInputPending'),b'\x01')
-        count_manual=len(potion_requests)
-        invoke(uc,symbol('paintHook'),[CANVAS])
-        assert len(potion_requests)==count_manual
-        invoke(uc,symbol('paintHook'),[CANVAS])
-        assert len(potion_requests)==count_manual+1
+        for flags in (0,0x40000000):
+            invoke(uc,symbol('consoleHook'),[0x100,0x70,flags],ecx=CONSOLE)
+            invoke(uc,symbol('paintHook'),[CANVAS])
+        assert len(potion_requests)==count_manual+2
         assert uc.mem_read(symbol('potionL8settingsE')+8,1)==b'\x01'
         assert r32(uc,symbol('potionL8settingsE'))==3000
         del potion_requests[request_start:]
@@ -542,8 +532,8 @@ def verify_hooks(helper):
         assert uc.mem_read(symbol('potionL9collapsedE'),1)==b'\x01'
         w32(uc,SELF+0x44,300);w32(uc,SELF+0x48,400)
         invoke(uc,symbol('paintHook'),[CANVAS])
-        assert r32(uc,symbol('potionL6panelXE'))==594
-        assert r32(uc,symbol('potionL6panelYE'))==262
+        assert r32(uc,symbol('potionL6panelXE'))==650
+        assert r32(uc,symbol('potionL6panelYE'))==274
         # A stale panel press must not steal the next physical shortcut click,
         # including while the potion channel is enabled.
         uc.mem_write(symbol('ownedClick'),b'\x01')
@@ -643,9 +633,10 @@ def verify_hooks(helper):
             assert set(potion_requests[start+j*4:start+j*4+4])=={10000,10001,10002,10003}, 'all due channels dispatch in the same update'
         assert [potion_requests[start+j*4] for j in range(8)]==[10000,10001,10002,10003]*2
         # Manual input yields without advancing the automatic turn.
-        put_global('potionL18manualInputPendingE',1)
+        put_global('manualRequestPending',1)
         before=len(potion_requests)
         invoke(uc,symbol('paintHook'),[CANVAS]);assert len(potion_requests)==before
+        put_global('manualRequestPending',0)
         invoke(uc,symbol('paintHook'),[CANVAS]);assert potion_requests[before:]==[10000,10001,10002,10003]
         # Disabled CP is skipped, rather than delaying the other channels.
         uc.mem_write(symbol('potionL8settingsE')+8,b'\x00')
@@ -680,12 +671,12 @@ def verify_hooks(helper):
         # Compact global toggle applies and persists directly, without Apply.
         invoke(uc,window_proc,[123,0x201,1,panel_point(290,10)])
         invoke(uc,window_proc,[123,0x202,0,panel_point(290,10)])
-        invoke(uc,window_proc,[123,0x201,1,panel_point(180,20)])
-        invoke(uc,window_proc,[123,0x202,0,panel_point(180,20)])
+        invoke(uc,window_proc,[123,0x201,1,panel_point(145,20)])
+        invoke(uc,window_proc,[123,0x202,0,panel_point(145,20)])
         assert uc.mem_read(symbol('potionL8settingsE')+44,1)==b'\x00'
         assert (b'QuickHPEnabled',b'0') in saved
-        invoke(uc,window_proc,[123,0x201,1,panel_point(180,20)])
-        invoke(uc,window_proc,[123,0x202,0,panel_point(180,20)])
+        invoke(uc,window_proc,[123,0x201,1,panel_point(145,20)])
+        invoke(uc,window_proc,[123,0x202,0,panel_point(145,20)])
         assert uc.mem_read(symbol('potionL8settingsE')+44,1)==b'\x01'
         assert uc.mem_read(symbol('potionL9collapsedE'),1)==b'\x01'
         print('x86 autopotion: cursor unlock, saved item type and delayed inventory restoration passed')
@@ -703,7 +694,7 @@ def verify_hooks(helper):
         assert credits[-2:] == ['Welcome to Lineage II Killer', '[ WT ] Patch by Wender | Enjoy the game!']
         message('Welcome to Lineage II Killer')
         assert credits.count('[ WT ] Patch by Wender | Enjoy the game!') == 1
-    print(f'x86 DLL: {count} hit/ABI cases; paint/page restoration, local credit once and Alt/Ctrl+Alt release passed at 2 bases')
+    print(f'x86 DLL: {count} hit/ABI cases; paint/page restoration, local credit once and native keyboard routing passed at 2 bases')
 
 
 def verify_initialization(patched, helper):

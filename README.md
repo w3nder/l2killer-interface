@@ -14,14 +14,14 @@ Três barras de atalhos, Auto Potion e equipamentos do alvo no cliente clássico
 > Projeto independente de um player. Não é uma interface oficial e não tem
 > vínculo com o dono ou a administração do L2Killer.
 
-## O que tem na 1.1.1
+## O que tem na 1.1.2
 
 | Recurso | Como funciona |
 | --- | --- |
-| Três barras | Páginas independentes, seletores, recolhimento e descrição dos itens. |
+| Três barras | Escolha 1, 2 ou 3 barras visíveis, com páginas independentes e descrição dos itens. |
 | Auto Potion | CP, HP, Mana e Quick HP. Arraste os itens, escolha percentual, intervalo ou ambos e ative. |
 | Configuração salva | Poções e preferências restauradas ao entrar, janela móvel e controle na barra compacta. |
-| Uso manual prioritário | Usar um item manualmente cede prioridade ao jogador enquanto aguarda a atualização do inventário. |
+| Uso manual prioritário | Uso manual sem pausa adicional por teclado ou espera pela atualização do inventário. |
 | Equipamentos do alvo | Ícones de 14 px abaixo de clan/ally, nomes e enchant recebido da arma ao passar o mouse. |
 | Visual local | Efeito de hero e cor do nome por comandos, só no seu personagem e na sua tela. |
 
@@ -29,12 +29,15 @@ Três barras de atalhos, Auto Potion e equipamentos do alvo no cliente clássico
 são compatíveis automaticamente. O patch só mostra equipamentos recebidos pelo
 cliente; não revela inventários, joias ausentes ou enchant das armaduras.
 
-### Correção da 1.1.1
+### Novidades da 1.1.2
 
-Auto Potion avalia todos os canais antes de enviar os pedidos. CP, HP, Mana e
-Quick HP podem ser solicitadas na mesma atualização, sem esperar outra poção
-completar. Configurações individuais e prioridade manual são preservadas.
-Correção validada por WT no Windows.
+- Teclado original do C4: F1–F12 usa atalhos; Alt+F1–F10 troca páginas.
+- Botão alterna entre 1, 2 e 3 barras e salva a escolha.
+- Auto Potion compacto, com ícones de 24 px e marcação nativa para ligar/desligar.
+- Removidas as pausas adicionais de poção por teclas e espera de inventário.
+  CP, HP, Mana e Quick HP mantêm avaliação independente e os intervalos configurados pelo jogador.
+
+Versão validada por WT no Windows.
 
 ## Instalar
 
@@ -52,8 +55,9 @@ completo nem o Wine.
 | Ação | Atalho ou comando |
 | --- | --- |
 | Primeira barra | F1–F12 |
-| Segunda barra | Alt + F1–F12 |
-| Terceira barra | Ctrl + Alt + F1–F12 |
+| Trocar página principal | Alt + F1–F10 |
+| Barras extras | Mouse |
+| Quantidade de barras | Botão alterna 1 → 2 → 3 → 1 |
 | Ligar efeito de hero | `!hero_on` |
 | Desligar efeito de hero | `!hero_off` ou `_hero_off` |
 | Nick vermelho | `!color_name FF0000` |
